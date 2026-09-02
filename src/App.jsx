@@ -6,6 +6,8 @@ import SavedPortfolios from './components/SavedPortfolios';
 import { filterExcludedSubnets } from './constants/excludedSubnets';
 import { useSavedPortfolios } from './context/savedPortfoliosStore';
 import { buildColumns } from './utils/helpers';
+import AgentActivityLog from './components/AgentActivityLog';
+import { useDataTools } from './webmcp/useDataTools';
 
 export default function App() {
   const [allData, setAllData] = useState([]);
@@ -22,6 +24,19 @@ export default function App() {
   } = useSavedPortfolios();
 
   const columns = useMemo(() => buildColumns(allData), [allData]);
+
+  // Tool cấp App. Đăng ký ở đây để chúng tồn tại bất kể tab nào đang mở —
+  // agent gọi được load_subnet_data hay switch_tab ở mọi thời điểm.
+  useDataTools({
+    allData,
+    activeTab,
+    setActiveTab,
+    onSubmitData: handleSubmit,
+    onClearData: handleClear,
+    savedPortfolios,
+    deleteSaved,
+    renameSaved,
+  });
 
   function handleSubmit(data) {
     setAllData(filterExcludedSubnets(data));
@@ -101,13 +116,17 @@ export default function App() {
             {activeTab === 'table' && (
               <DataTable data={allData} columns={columns} />
             )}
-            {activeTab === 'portfolio' && (
+            {/* Portfolio luôn mount (chỉ ẩn bằng CSS) để tool WebMCP của nó không
+                biến mất khi người dùng chuyển tab — agent phải gọi được
+                generate_portfolio ngay cả lúc đang xem bảng dữ liệu.
+                `contents` giữ nguyên layout flex của component cha. */}
+            <div className={activeTab === 'portfolio' ? 'contents' : 'hidden'}>
               <Portfolio
                 allData={allData}
                 savedPortfolios={savedPortfolios}
                 onSavePortfolio={savePortfolio}
               />
-            )}
+            </div>
             {activeTab === 'saved' && (
               <div className="h-0 grow pt-4 flex flex-col overflow-hidden">
                 <SavedPortfolios
@@ -124,6 +143,7 @@ export default function App() {
           </div>
         
       </main>
+      <AgentActivityLog />
     </div>
   );
 }
