@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { SAMPLE_SUBNETS } from '../constants/sampleSubnets';
 
 export default function InputCard({ onSubmit, onClear, loadedCount }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -34,6 +35,15 @@ export default function InputCard({ onSubmit, onClear, loadedCount }) {
     } catch (e) {
       setError('⚠ ' + e.message);
     }
+  }
+
+  function handleLoadSample() {
+    const text = JSON.stringify(SAMPLE_SUBNETS, null, 2);
+    textareaRef.current.value = text;
+    setCharCount(text.length);
+    setError('');
+    setCollapsed(true);
+    onSubmit(SAMPLE_SUBNETS);
   }
 
   function handleClear() {
@@ -92,6 +102,13 @@ export default function InputCard({ onSubmit, onClear, loadedCount }) {
               onClick={handleSubmit}
             >
               ▶ SUBMIT DATA
+            </button>
+            <button
+              className="px-8 py-4 bg-transparent text-violet-400 border border-violet-500/50 rounded-lg font-mono text-xs font-bold tracking-wider cursor-pointer transition-all duration-150 hover:bg-violet-500/10"
+              onClick={handleLoadSample}
+              title="Nạp 40 subnet mẫu (dữ liệu hư cấu) để dùng thử ngay"
+            >
+              ⚡ LOAD SAMPLE DATA
             </button>
             {loadedCount > 0 && (
               <button
