@@ -8,6 +8,7 @@ import {
   checkDedupe,
   DD_TRIGGER,
 } from '../utils/portfolio';
+import { usePortfolioTools } from '../webmcp/usePortfolioTools';
 import ChipList from './ChipList';
 import PortfolioResult from './PortfolioResult';
 
@@ -41,11 +42,9 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
     setPortfolio(null);
   }
 
-  function handleGenerate() {
-    const selections = [
-      { changeKey, n: parseCount(inputN) },
-      { changeKey: changeKey2, n: parseCount(inputN2) },
-    ];
+  // Tách phần dựng danh mục khỏi phần đọc state của form, để cả nút bấm lẫn
+  // tool WebMCP dùng chung một đường. Trả về danh mục vừa dựng cho phía gọi.
+  function generateWith(selections) {
     // Gộp subnet từ 2 điều kiện (đã loại trùng), rồi sắp xếp theo thanh khoản giảm dần
     // để danh mục cuối vẫn ưu tiên trọng số cho subnet thanh khoản cao.
     const combined = getMixedSubnets(allData, selections);
@@ -54,9 +53,34 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
       const bv = parseFloat(b[LIQUIDITY_FIELD]);
       return (isNaN(bv) ? -Infinity : bv) - (isNaN(av) ? -Infinity : av);
     });
+    const next = generateLiquidityWeightedPortfolio(byLiquidity);
     setTopSubnets(byLiquidity);
     setEditMode(false);
-    setPortfolio(generateLiquidityWeightedPortfolio(byLiquidity));
+    setPortfolio(next);
+    return next;
+  }
+
+  function handleGenerate() {
+    return generateWith([
+      { changeKey, n: parseCount(inputN) },
+      { changeKey: changeKey2, n: parseCount(inputN2) },
+    ]);
+  }
+
+  // Agent dựng danh mục: đồng bộ luôn hai ô input để người dùng nhìn thấy đúng
+  // tiêu chí mà agent đã chọn, chứ không chỉ thấy kết quả rơi từ trên trời.
+  function generateFromAgent(selections) {
+    const [g1, g2] = selections;
+    const n1 = parseCount(String(g1.n));
+    const n2 = parseCount(String(g2.n));
+    setChangeKey(g1.changeKey);
+    setInputN(String(n1));
+    setChangeKey2(g2.changeKey);
+    setInputN2(String(n2));
+    return generateWith([
+      { changeKey: g1.changeKey, n: n1 },
+      { changeKey: g2.changeKey, n: n2 },
+    ]);
   }
 
   function handleToggleEdit() {
@@ -68,23 +92,25 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
     setEditMode(false);
   }
 
-  function handleSave() {
-    if (!portfolio) return;
+  // Lưu danh mục, trả về { ok, message } thay vì tự set thông báo — nhờ vậy tool
+  // WebMCP nhận được đúng lý do bị từ chối và có thể tự xử lý (ví dụ gặp trùng
+  // lặp thì gọi escape_dedupe rồi lưu lại), còn nút bấm chỉ việc hiển thị.
+  function saveWithName(name) {
+    if (!portfolio) return { ok: false, message: 'Chưa có danh mục để lưu.' };
 
     const { valid, errors } = validateTaoAlphaPortfolio(portfolio);
     if (!valid) {
-      setSaveMsg(`✕ Danh mục không hợp lệ: ${errors[0]}`);
-      setTimeout(() => setSaveMsg(''), 3000);
-      return;
+      return { ok: false, message: `Danh mục không hợp lệ: ${errors[0]}` };
     }
 
     // Chặn lưu nếu danh mục mới trùng lặp (sẽ bị dedupe) với một danh mục đã lưu.
     const dup = checkDedupe(portfolio, savedPortfolios);
     if (!dup.ok) {
       const c = dup.conflicts[0];
-      setSaveMsg(`✕ Trùng lặp với "${c.name || 'danh mục đã lưu'}" (d=${c.dist} < ${DD_TRIGGER}) → sẽ bị dedupe. Chưa lưu.`);
-      setTimeout(() => setSaveMsg(''), 4000);
-      return;
+      return {
+        ok: false,
+        message: `Trùng lặp với "${c.name || 'danh mục đã lưu'}" (d=${c.dist} < ${DD_TRIGGER}) → sẽ bị dedupe. Chưa lưu.`,
+      };
     }
 
     const entries = Object.entries(portfolio).filter(([k]) => k !== '_');
@@ -109,11 +135,29 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
       prices,
       names,
     };
+    if (name && String(name).trim()) record.name = String(name).trim();
 
     onSavePortfolio(record);
-    setSaveMsg('✓ Đã lưu danh mục!');
-    setTimeout(() => setSaveMsg(''), 2500);
+    return { ok: true, name: record.name || '(chưa đặt tên)', total: savedPortfolios.length + 1 };
   }
+
+  function handleSave() {
+    const result = saveWithName();
+    setSaveMsg(result.ok ? '✓ Đã lưu danh mục!' : `✕ ${result.message}`);
+    setTimeout(() => setSaveMsg(''), result.ok ? 2500 : 4000);
+  }
+
+  usePortfolioTools({
+    allData,
+    savedPortfolios,
+    portfolio,
+    applyPortfolio: (next) => {
+      setPortfolio(next);
+      setEditMode(false);
+    },
+    generate: generateFromAgent,
+    save: saveWithName,
+  });
 
   const label1 = CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label || changeKey;
   const label2 = CHANGE_OPTIONS.find((o) => o.value === changeKey2)?.label || changeKey2;
