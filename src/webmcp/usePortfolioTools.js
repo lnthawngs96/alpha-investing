@@ -58,7 +58,7 @@ export function usePortfolioTools({
     {
       name: 'generate_portfolio',
       description:
-        'Dựng một danh mục mới từ hai nhóm tiêu chí. Mỗi nhóm chọn top N subnet theo một chỉ số; hai nhóm được gộp lại và loại trùng (nhóm sau lấy subnet kế tiếp nếu bị trùng với nhóm trước). Danh mục cuối được phân bổ giảm dần theo thanh khoản, trần 5% mỗi subnet, tổng bằng 1. Thao tác này ghi đè danh mục đang dựng.',
+        'Dựng một danh mục mới từ hai nhóm tiêu chí. Mỗi nhóm chọn top N subnet theo một chỉ số; hai nhóm được gộp lại và loại trùng (nhóm sau lấy subnet kế tiếp nếu bị trùng với nhóm trước). Danh mục cuối được phân bổ giảm dần theo thanh khoản, trần 5% mỗi subnet, tổng bằng 1. Thao tác này ghi đè danh mục đang dựng. Nếu tab hiện tại không phải "portfolio" (xem active_tab từ get_app_state), gọi switch_tab("portfolio") trước hoặc ngay sau khi gọi tool này, để người dùng nhìn thấy danh mục đang được dựng thay vì màn hình cũ.',
       inputSchema: {
         type: 'object',
         properties: {
