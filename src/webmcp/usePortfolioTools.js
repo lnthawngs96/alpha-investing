@@ -93,6 +93,7 @@ export function usePortfolioTools({
       name: 'get_current_portfolio',
       description:
         'Đọc danh mục đang dựng: từng subnet với tỷ trọng, tổng phân bổ, phần tiền mặt còn lại, kết quả kiểm tra hợp lệ và khoảng cách dedupe tới các danh mục đã lưu.',
+      annotations: { readOnlyHint: true },
       inputSchema: { type: 'object', properties: {} },
       execute: async () => report(requirePortfolio(), { log: 'Đọc danh mục hiện tại' }),
     },

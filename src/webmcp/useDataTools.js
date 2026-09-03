@@ -67,6 +67,7 @@ export function useDataTools({
       name: 'get_app_state',
       description:
         'Xem trạng thái hiện tại của app: đã nạp bao nhiêu subnet, các trường dữ liệu có sẵn, tab đang mở, số danh mục đã lưu. Gọi tool này trước khi làm gì khác để biết app đang ở đâu.',
+      annotations: { readOnlyHint: true },
       inputSchema: { type: 'object', properties: {} },
       execute: async () => {
         const { allData: data, activeTab: tab, savedPortfolios: saved } = state.current;
@@ -85,6 +86,7 @@ export function useDataTools({
       name: 'query_subnets',
       description:
         'Xếp hạng các subnet đã nạp theo một chỉ số và trả về top N. Dùng để khảo sát dữ liệu trước khi quyết định tiêu chí tạo danh mục. Subnet 0 luôn bị loại.',
+      annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
         properties: {
@@ -144,6 +146,7 @@ export function useDataTools({
       name: 'list_saved_portfolios',
       description:
         'Liệt kê các danh mục đã lưu kèm chỉ số (index), tên, thời điểm lưu, số subnet và tổng phân bổ. Index trả về ở đây dùng cho rename_saved_portfolio và delete_saved_portfolio.',
+      annotations: { readOnlyHint: true },
       inputSchema: { type: 'object', properties: {} },
       execute: async () => {
         const { savedPortfolios: saved } = state.current;
@@ -210,6 +213,7 @@ export function useDataTools({
       name: 'check_dedupe',
       description:
         'Kiểm tra một bảng phân bổ bất kỳ có bị mạng Subnet 88 coi là trùng lặp với các danh mục đã lưu hay không. Khoảng cách Euclid giữa hai vector phân bổ đã chuẩn hoá L1 nhỏ hơn ngưỡng 0.01 sẽ bị phạt điểm nặng. Dùng để thẩm định một phương án trước khi áp vào danh mục đang dựng.',
+      annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
         properties: {

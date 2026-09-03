@@ -107,6 +107,7 @@ export function useWebMCPTools(specs) {
         name: spec.name,
         description: spec.description,
         inputSchema: spec.inputSchema,
+        ...(spec.annotations ? { annotations: spec.annotations } : {}),
         execute: async (args) => {
           // Luôn lấy bản execute mới nhất theo tên, không dùng closure lúc đăng ký.
           const live = specsRef.current.find((s) => s.name === spec.name) || spec;
