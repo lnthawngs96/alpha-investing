@@ -98,9 +98,18 @@ export function useWebMCPTools(specs) {
 
   useEffect(() => {
     const mc = getModelContext();
-    if (!mc) return undefined;
-
     const cleanups = [];
+
+    // Cầu nối debug: luôn expose tool ra window.__webmcpTools, BẤT KỂ trình
+    // duyệt có hỗ trợ WebMCP native hay không. Lý do tồn tại: đại đa số trình
+    // duyệt hiện tại (kể cả Chrome ổn định chưa bật flag) chưa hỗ trợ
+    // document.modelContext, nên nếu chỉ đăng ký khi mc tồn tại thì không có
+    // cách nào kiểm chứng logic của tool ngoài việc tự dựng lại UI bằng tay.
+    // Cầu nối này cho phép gọi đúng execute() — cùng một hàm mà một agent
+    // WebMCP thật sẽ gọi — trực tiếp từ Console, trên đúng bản build production.
+    if (typeof window !== 'undefined') {
+      window.__webmcpTools = window.__webmcpTools || {};
+    }
 
     for (const spec of specsRef.current) {
       const tool = {
@@ -128,10 +137,22 @@ export function useWebMCPTools(specs) {
           }
         },
       };
-      try {
-        cleanups.push(registerOne(mc, tool));
-      } catch {
-        /* một tool hỏng không được chặn các tool còn lại */
+
+      if (typeof window !== 'undefined') {
+        window.__webmcpTools[tool.name] = tool;
+        cleanups.push(() => {
+          if (window.__webmcpTools && window.__webmcpTools[tool.name] === tool) {
+            delete window.__webmcpTools[tool.name];
+          }
+        });
+      }
+
+      if (mc) {
+        try {
+          cleanups.push(registerOne(mc, tool));
+        } catch {
+          /* một tool hỏng không được chặn các tool còn lại */
+        }
       }
     }
 
