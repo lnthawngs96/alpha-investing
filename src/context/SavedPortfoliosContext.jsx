@@ -69,6 +69,7 @@ export function SavedPortfoliosProvider({ children }) {
   // `extra` (tuỳ chọn) bổ sung giá/tên cho subnet MỚI thêm vào danh mục: giá lúc thêm chính là
   // giá mua vào của subnet đó, thiếu nó thì cột "Biến động" của subnet mới luôn hiện "—".
   // Chỉ GỘP thêm, không ghi đè giá đã lưu của các subnet cũ.
+  // `extra.groups` (nếu có) ghi đè membership nhóm generate — dùng khi xoá/thêm theo cụm.
   const updateSaved = useCallback(
     (idx, portfolio, extra = null) =>
       commit((prev) =>
@@ -79,6 +80,7 @@ export function SavedPortfoliosProvider({ children }) {
                 portfolio,
                 prices: { ...(s.prices || {}), ...(extra?.prices || {}) },
                 names: { ...(s.names || {}), ...(extra?.names || {}) },
+                ...(extra?.groups !== undefined ? { groups: extra.groups } : {}),
               }
             : s
         )
