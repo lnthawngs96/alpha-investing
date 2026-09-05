@@ -156,30 +156,111 @@ export function getTopNByChange(data, n, changeKey) {
 // Mỗi selection đóng góp đúng n subnet phân biệt: duyệt list đã sort giảm dần theo changeKey,
 // bỏ qua subnet đã được chọn ở selection trước và lấy tiếp subnet kế tiếp cho đủ n
 // (vd top-10 tăng trưởng nếu trùng với top-50 thanh khoản thì lấy subnet tăng trưởng kế tiếp).
-// Luôn loại subnet 0. Trả về mảng subnet đã gộp (thứ tự theo lượt chọn).
-export function getMixedSubnets(data, selections) {
+// Luôn loại subnet 0.
+// Trả về { subnets, groups } — groups giữ membership từng nhóm để UI xoá/thêm theo cụm.
+export function getMixedSubnetsGrouped(data, selections) {
   const pool = data.filter((r) => Number(r.netuid) !== 0);
   const chosen = [];
   const chosenIds = new Set();
+  const groups = [];
   for (const { changeKey, n } of selections || []) {
     const count = Math.max(0, Math.floor(n));
-    if (!count) continue;
-    const sorted = [...pool].sort((a, b) => {
-      const av = parseFloat(a[changeKey]);
-      const bv = parseFloat(b[changeKey]);
-      return (isNaN(bv) ? -Infinity : bv) - (isNaN(av) ? -Infinity : av);
-    });
-    let added = 0;
-    for (const s of sorted) {
-      if (added >= count) break;
-      const id = String(s.netuid);
-      if (chosenIds.has(id)) continue;
-      chosenIds.add(id);
-      chosen.push(s);
-      added++;
+    const netuids = [];
+    if (count) {
+      const sorted = [...pool].sort((a, b) => {
+        const av = parseFloat(a[changeKey]);
+        const bv = parseFloat(b[changeKey]);
+        return (isNaN(bv) ? -Infinity : bv) - (isNaN(av) ? -Infinity : av);
+      });
+      let added = 0;
+      for (const s of sorted) {
+        if (added >= count) break;
+        const id = String(s.netuid);
+        if (chosenIds.has(id)) continue;
+        chosenIds.add(id);
+        chosen.push(s);
+        netuids.push(id);
+        added++;
+      }
     }
+    groups.push({ changeKey, n: count, netuids });
   }
-  return chosen;
+  return { subnets: chosen, groups };
+}
+
+// Giữ API cũ: chỉ trả mảng subnet đã gộp (thứ tự theo lượt chọn).
+export function getMixedSubnets(data, selections) {
+  return getMixedSubnetsGrouped(data, selections).subnets;
+}
+
+// Suy ra membership nhóm cho một danh mục đã lưu.
+// Ưu tiên `saved.groups` (đã persist). Thiếu thì ước lượng lại từ selections + data hiện tại
+// (giao với netuid còn trong portfolio). Subnet không thuộc nhóm nào → "other".
+export function resolvePortfolioGroups(saved, currentData = []) {
+  const inPortfolio = new Set(
+    Object.keys(saved?.portfolio || {}).filter((k) => k !== '_')
+  );
+  if (!inPortfolio.size) return [];
+
+  const labelOf = (changeKey) => {
+    if (changeKey === 'other') return 'Khác / chưa phân nhóm';
+    return changeKey;
+  };
+
+  if (Array.isArray(saved?.groups) && saved.groups.length) {
+    const seen = new Set();
+    const groups = saved.groups.map((g) => {
+      const netuids = (g.netuids || [])
+        .map(String)
+        .filter((id) => inPortfolio.has(id) && !seen.has(id));
+      netuids.forEach((id) => seen.add(id));
+      return {
+        changeKey: g.changeKey,
+        n: g.n ?? netuids.length,
+        netuids,
+        label: g.label || labelOf(g.changeKey),
+      };
+    });
+    const orphan = [...inPortfolio].filter((id) => !seen.has(id));
+    if (orphan.length) {
+      groups.push({
+        changeKey: 'other',
+        n: orphan.length,
+        netuids: orphan,
+        label: 'Khác / chưa phân nhóm',
+      });
+    }
+    return groups.filter((g) => g.netuids.length > 0);
+  }
+
+  if (Array.isArray(saved?.selections) && saved.selections.length && currentData?.length) {
+    const { groups: rebuilt } = getMixedSubnetsGrouped(currentData, saved.selections);
+    const seen = new Set();
+    const groups = rebuilt.map((g) => {
+      const netuids = g.netuids.filter((id) => inPortfolio.has(id) && !seen.has(id));
+      netuids.forEach((id) => seen.add(id));
+      return { ...g, n: netuids.length, label: labelOf(g.changeKey) };
+    });
+    const orphan = [...inPortfolio].filter((id) => !seen.has(id));
+    if (orphan.length) {
+      groups.push({
+        changeKey: 'other',
+        n: orphan.length,
+        netuids: orphan,
+        label: 'Khác / chưa phân nhóm',
+      });
+    }
+    return groups.filter((g) => g.netuids.length > 0);
+  }
+
+  return [
+    {
+      changeKey: 'other',
+      n: inPortfolio.size,
+      netuids: [...inPortfolio],
+      label: 'Khác / chưa phân nhóm',
+    },
+  ];
 }
 
 // Tạo portfolio phân bổ giảm dần đều (cấp số cộng) theo rank emission.

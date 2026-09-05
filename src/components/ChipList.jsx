@@ -1,8 +1,8 @@
 import { formatMetric } from '../utils/helpers';
 
-export default function ChipList({ subnets, metricField }) {
+export default function ChipList({ subnets, metricField, className }) {
   return (
-    <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+    <div className={className || 'flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto'}>
       {subnets.map((s) => {
         const val = metricField ? parseFloat(s[metricField]) : NaN;
         const hasVal = !isNaN(val);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { generateLiquidityWeightedPortfolio, getMixedSubnets } from '../utils/helpers';
+import { generateLiquidityWeightedPortfolio, getMixedSubnetsGrouped } from '../utils/helpers';
 import {
   TOP_N_MAX,
   CHANGE_OPTIONS, CHANGE_DEFAULT,
@@ -16,15 +16,18 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
   const [portfolio, setPortfolio] = useState(null);
   const [editMode, setEditMode] = useState(false);
   // Nhóm 1 (mặc định: thanh khoản – dùng làm nhóm neo) + Nhóm 2 (mặc định: tăng trưởng ngày)
-  const [inputN, setInputN] = useState('50');
+  const [inputN, setInputN] = useState('30');
   const [changeKey, setChangeKey] = useState(LIQUIDITY_FIELD);
   const [inputN2, setInputN2] = useState('10');
   const [changeKey2, setChangeKey2] = useState(CHANGE_DEFAULT);
   const [topSubnets, setTopSubnets] = useState([]);
+  // Membership theo từng nhóm generate — lưu cùng danh mục để UI xoá cả cụm.
+  const [selectionGroups, setSelectionGroups] = useState([]);
   const [saveMsg, setSaveMsg] = useState('');
 
   useEffect(() => {
     setTopSubnets([]);
+    setSelectionGroups([]);
     setPortfolio(null);
     setEditMode(false);
   }, [allData]);
@@ -39,6 +42,7 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
 
   function resetResult() {
     setTopSubnets([]);
+    setSelectionGroups([]);
     setPortfolio(null);
   }
 
@@ -47,7 +51,7 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
   function generateWith(selections) {
     // Gộp subnet từ 2 điều kiện (đã loại trùng), rồi sắp xếp theo thanh khoản giảm dần
     // để danh mục cuối vẫn ưu tiên trọng số cho subnet thanh khoản cao.
-    const combined = getMixedSubnets(allData, selections);
+    const { subnets: combined, groups } = getMixedSubnetsGrouped(allData, selections);
     const byLiquidity = [...combined].sort((a, b) => {
       const av = parseFloat(a[LIQUIDITY_FIELD]);
       const bv = parseFloat(b[LIQUIDITY_FIELD]);
@@ -55,6 +59,14 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
     });
     const next = generateLiquidityWeightedPortfolio(byLiquidity);
     setTopSubnets(byLiquidity);
+    setSelectionGroups(
+      groups.map((g) => ({
+        changeKey: g.changeKey,
+        n: g.n,
+        netuids: [...g.netuids],
+        label: CHANGE_OPTIONS.find((o) => o.value === g.changeKey)?.label || g.changeKey,
+      }))
+    );
     setEditMode(false);
     setPortfolio(next);
     return next;
@@ -125,12 +137,22 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
       }
     });
 
+    const g1Label = CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label || changeKey;
+    const g2Label = CHANGE_OPTIONS.find((o) => o.value === changeKey2)?.label || changeKey2;
+
     const record = {
       savedAt: new Date().toISOString(),
       selections: [
         { changeKey, n: parseCount(inputN) },
         { changeKey: changeKey2, n: parseCount(inputN2) },
       ],
+      // Membership từng nhóm generate — dùng để chia section + xoá cả cụm khi rebalance ngày.
+      groups: selectionGroups.length
+        ? selectionGroups
+        : [
+            { changeKey, n: parseCount(inputN), netuids: [], label: g1Label },
+            { changeKey: changeKey2, n: parseCount(inputN2), netuids: [], label: g2Label },
+          ],
       portfolio: { ...portfolio },
       prices,
       names,
@@ -240,7 +262,24 @@ export default function Portfolio({ allData, savedPortfolios, onSavePortfolio })
               {topSubnets.length}
             </div>
           </div>
-          <ChipList subnets={topSubnets} metricField={LIQUIDITY_FIELD} />
+          {selectionGroups.length > 0 ? (
+            <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto">
+              {selectionGroups.map((g) => {
+                const ids = new Set(g.netuids.map(String));
+                const chips = topSubnets.filter((s) => ids.has(String(s.netuid)));
+                return (
+                  <div key={g.changeKey} className="flex flex-col gap-2 shrink-0">
+                    <div className="text-[10px] font-bold tracking-wider text-slate-500">
+                      {g.label || g.changeKey} · {chips.length}
+                    </div>
+                    <ChipList subnets={chips} metricField={LIQUIDITY_FIELD} className="flex flex-col gap-2" />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <ChipList subnets={topSubnets} metricField={LIQUIDITY_FIELD} />
+          )}
           <button
             className="px-6 py-3 bg-violet-500 border-none rounded-lg text-white font-mono text-xs font-bold tracking-wider cursor-pointer transition-all duration-200 mt-auto shrink-0 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed"
             onClick={handleGenerate}

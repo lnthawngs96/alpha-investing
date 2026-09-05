@@ -21,12 +21,20 @@ import {
   redistributeRemovedWeights,
   allocateWeightsForNewSubnets,
   buildRankIndex,
+  resolvePortfolioGroups,
 } from '../utils/helpers';
 import NumericTextInput from './NumericTextInput';
 
 // Hiển thị % gọn: tối đa 4 chữ số thập phân, bỏ số 0 thừa (5 → "5", 2.040816 → "2.0408").
 function fmtPct(v) {
   return String(+Math.max(0, v).toFixed(4));
+}
+
+// Label hiển thị cho nhóm generate (thanh khoản / tăng trưởng 1 ngày / …).
+function groupLabel(changeKey, fallback) {
+  if (fallback) return fallback;
+  if (changeKey === 'other') return 'Khác / chưa phân nhóm';
+  return CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label || changeKey || 'Nhóm';
 }
 
 // Ngưỡng mặc định "top" cho hai tiêu chí đánh giá subnet trong danh mục.
@@ -115,6 +123,8 @@ export default function SavedPortfolios({
   const [addSplitMode, setAddSplitMode] = useState('decreasing');
   const [addChangeKey, setAddChangeKey] = useState(filterKey);
   const [candidateLimit, setCandidateLimit] = useState(DEFAULT_CANDIDATE_LIMIT);
+  // Membership nhóm generate khi đang sửa (để xoá cả cụm / gắn subnet mới vào đúng nhóm).
+  const [draftGroups, setDraftGroups] = useState([]);
   // Chỉnh sửa trực tiếp JSON của danh mục đã lưu.
   const [editingJsonIdx, setEditingJsonIdx] = useState(null);
   const [jsonDraft, setJsonDraft] = useState('');
@@ -370,6 +380,15 @@ export default function SavedPortfolios({
     setAddChangeKey(filterKey);
     setCandidateLimit(DEFAULT_CANDIDATE_LIMIT);
     setWeightDrafts(Object.fromEntries(Object.entries(base).map(([id, v]) => [id, fmtPct(v)])));
+    const saved = savedList[idx];
+    setDraftGroups(
+      resolvePortfolioGroups(saved, currentData).map((g) => ({
+        changeKey: g.changeKey,
+        n: g.n,
+        netuids: [...g.netuids],
+        label: groupLabel(g.changeKey, g.label),
+      }))
+    );
   }
 
   function cancelEditWeights() {
@@ -381,6 +400,7 @@ export default function SavedPortfolios({
     setReceivers([]);
     setAddedIds([]);
     setAddOverrides({});
+    setDraftGroups([]);
   }
 
   // Toàn bộ tỷ trọng hiển thị được suy ra từ trạng thái nháp qua 3 tầng, theo đúng thứ tự:
@@ -466,19 +486,68 @@ export default function SavedPortfolios({
   // Bỏ subnet khỏi bản nháp: subnet mới thêm thì gỡ khỏi danh sách thêm (trả lại tỷ trọng
   // đã trích cho các subnet lớn), subnet có sẵn thì đánh dấu đã bỏ để chia lại.
   function removeSubnetFromDraft(netuid) {
-    if (addedIds.includes(netuid)) {
-      unpickCandidate(netuid);
+    const id = String(netuid);
+    setDraftGroups((gs) =>
+      gs.map((g) => ({ ...g, netuids: g.netuids.filter((x) => x !== id) }))
+    );
+    if (addedIds.includes(id)) {
+      unpickCandidate(id);
       return;
     }
     applyDraft({
-      removed: [...removedIds, netuid],
-      recv: receivers.filter((id) => id !== netuid),
+      removed: [...removedIds, id],
+      recv: receivers.filter((x) => x !== id),
     });
+  }
+
+  // Xoá cả một nhóm generate (vd cả 10 subnet tăng trưởng 1 ngày) trong một thao tác.
+  function removeGroupFromDraft(netuids) {
+    const ids = [...new Set((netuids || []).map(String))];
+    if (!ids.length) return;
+    const idSet = new Set(ids);
+    setDraftGroups((gs) =>
+      gs.map((g) => ({ ...g, netuids: g.netuids.filter((x) => !idSet.has(x)) }))
+    );
+    const toUnpick = ids.filter((id) => addedIds.includes(id));
+    const toRemove = ids.filter((id) => !addedIds.includes(id) && !removedIds.includes(id));
+    if (toUnpick.length) {
+      const overrides = { ...addOverrides };
+      toUnpick.forEach((id) => { delete overrides[id]; });
+      applyDraft({
+        added: addedIds.filter((x) => !idSet.has(x)),
+        overrides,
+        removed: [...removedIds, ...toRemove],
+        recv: receivers.filter((x) => !idSet.has(x)),
+      });
+      return;
+    }
+    if (toRemove.length) {
+      applyDraft({
+        removed: [...removedIds, ...toRemove],
+        recv: receivers.filter((x) => !idSet.has(x)),
+      });
+    }
   }
 
   // Khôi phục subnet đã bỏ (trả lại tỷ trọng gốc, pool chia lại cho ít subnet hơn).
   function restoreSubnet(netuid) {
-    applyDraft({ removed: removedIds.filter((id) => id !== netuid) });
+    const id = String(netuid);
+    // Đưa lại vào nhóm gốc nếu còn nhớ; nếu không thì nhóm "other".
+    setDraftGroups((gs) => {
+      const already = gs.some((g) => g.netuids.includes(id));
+      if (already) return gs;
+      const other = gs.find((g) => g.changeKey === 'other');
+      if (other) {
+        return gs.map((g) =>
+          g.changeKey === 'other' ? { ...g, netuids: [...g.netuids, id] } : g
+        );
+      }
+      return [
+        ...gs,
+        { changeKey: 'other', n: 1, netuids: [id], label: 'Khác / chưa phân nhóm' },
+      ];
+    });
+    applyDraft({ removed: removedIds.filter((x) => x !== id) });
   }
 
   // Tick/bỏ tick subnet nhận phần tỷ trọng giải phóng (mọi thao tác tick = chọn thủ công).
@@ -508,9 +577,39 @@ export default function SavedPortfolios({
   }
 
   // ── Thêm subnet mới ───────────────────────────────────────────────────────
+  // Gắn subnet mới vào nhóm khớp tiêu chí đang chọn (thường = tăng trưởng 1 ngày).
+  function assignIdsToDraftGroup(ids, changeKey) {
+    const incoming = [...new Set(ids.map(String))];
+    if (!incoming.length) return;
+    setDraftGroups((gs) => {
+      const without = gs.map((g) => ({
+        ...g,
+        netuids: g.netuids.filter((id) => !incoming.includes(id)),
+      }));
+      const idx = without.findIndex((g) => g.changeKey === changeKey);
+      if (idx >= 0) {
+        return without.map((g, i) =>
+          i === idx ? { ...g, netuids: [...g.netuids, ...incoming] } : g
+        );
+      }
+      return [
+        ...without,
+        {
+          changeKey,
+          n: incoming.length,
+          netuids: incoming,
+          label: groupLabel(changeKey),
+        },
+      ];
+    });
+  }
+
   function pickCandidates(ids) {
     const merged = [...new Set([...addedIds, ...ids.map(String)])];
-    applyDraft({ added: sortIdsByChange(merged, addChangeKey) });
+    const sorted = sortIdsByChange(merged, addChangeKey);
+    const newly = sorted.filter((id) => !addedIds.includes(id));
+    assignIdsToDraftGroup(newly, addChangeKey);
+    applyDraft({ added: sorted });
   }
 
   // Đổi tiêu chí xếp hạng → xếp lại cả danh sách đã chọn để thứ tự nhận tỷ trọng
@@ -524,6 +623,9 @@ export default function SavedPortfolios({
     const id = String(netuid);
     const overrides = { ...addOverrides };
     delete overrides[id];
+    setDraftGroups((gs) =>
+      gs.map((g) => ({ ...g, netuids: g.netuids.filter((x) => x !== id) }))
+    );
     applyDraft({ added: addedIds.filter((x) => x !== id), overrides });
   }
 
@@ -534,6 +636,10 @@ export default function SavedPortfolios({
   }
 
   function clearCandidates() {
+    const clearing = new Set(addedIds);
+    setDraftGroups((gs) =>
+      gs.map((g) => ({ ...g, netuids: g.netuids.filter((id) => !clearing.has(id)) }))
+    );
     applyDraft({ added: [], overrides: {} });
   }
 
@@ -578,6 +684,31 @@ export default function SavedPortfolios({
       if (saved?.prices?.[id] == null && !isNaN(p)) extra.prices[id] = p;
       if (saved?.names?.[id] == null && row.name) extra.names[id] = row.name;
     });
+
+    // Persist membership nhóm (chỉ giữ netuid còn trong danh mục sau khi áp dụng).
+    const keep = new Set(netuids);
+    const seen = new Set();
+    extra.groups = draftGroups
+      .map((g) => {
+        const ids = g.netuids.filter((id) => keep.has(id) && !seen.has(id));
+        ids.forEach((id) => seen.add(id));
+        return {
+          changeKey: g.changeKey,
+          n: ids.length,
+          netuids: ids,
+          label: groupLabel(g.changeKey, g.label),
+        };
+      })
+      .filter((g) => g.netuids.length > 0);
+    const orphan = netuids.filter((id) => !seen.has(id));
+    if (orphan.length) {
+      extra.groups.push({
+        changeKey: 'other',
+        n: orphan.length,
+        netuids: orphan,
+        label: 'Khác / chưa phân nhóm',
+      });
+    }
 
     const addedCount = addedIds.length;
     onUpdate(idx, newPortfolio, extra);
@@ -806,7 +937,9 @@ export default function SavedPortfolios({
           <div className="flex flex-col gap-4">
         {savedList.map((saved, idx) => {
           const isExpanded = expandedIdx === idx;
-          const entries = Object.entries(saved.portfolio).filter(([k]) => k !== '_');
+          const entries = Object.entries(saved.portfolio)
+            .filter(([k]) => k !== '_')
+            .sort((a, b) => b[1] - a[1]); // cùng thứ tự JSON: tỷ trọng cao → thấp
           // Tổng hợp phân loại của danh mục đã lưu (dùng cho badge ở header).
           const savedStats = canRank ? summarize(entries) : null;
 
@@ -912,12 +1045,14 @@ export default function SavedPortfolios({
                 const isEditingWeights = editingWeightsIdx === idx;
                 const isEditingJson = editingJsonIdx === idx;
                 // Khi đang sửa, bảng chạy theo bản nháp (đã trừ subnet bị xoá); ngược lại theo danh mục đã lưu.
-                const displayEntries = isEditingWeights
+                // Luôn sort tỷ trọng giảm dần — đồng bộ với JSON bên phải.
+                const displayEntries = (isEditingWeights
                   ? Object.entries(weightDrafts).map(([k, v]) => {
                       const p = parseFloat(v);
                       return [k, isNaN(p) ? 0 : p / 100];
                     })
-                  : entries;
+                  : entries
+                ).sort((a, b) => b[1] - a[1]);
 
                 const rowsData = displayEntries.map(([netuid, weight]) => {
                   const savedPrice = saved.prices?.[netuid];
@@ -939,6 +1074,48 @@ export default function SavedPortfolios({
 
                   return { netuid, weight, savedPrice, currentSubnet, currentPrice, priceChange };
                 });
+
+                // Chia bảng theo nhóm generate (thanh khoản / tăng trưởng …) để xoá cả cụm.
+                // Trong mỗi section vẫn xếp theo tỷ trọng giảm dần (không theo thứ tự netuid / generate).
+                const byWeightDesc = (a, b) => b.weight - a.weight;
+                const activeGroups = isEditingWeights
+                  ? draftGroups
+                  : resolvePortfolioGroups(saved, currentData);
+                const rowById = new Map(rowsData.map((r) => [r.netuid, r]));
+                const placed = new Set();
+                const sections = activeGroups
+                  .map((g) => {
+                    const rows = g.netuids
+                      .map((id) => rowById.get(String(id)))
+                      .filter(Boolean)
+                      .sort(byWeightDesc);
+                    rows.forEach((r) => placed.add(r.netuid));
+                    return {
+                      changeKey: g.changeKey,
+                      label: groupLabel(g.changeKey, g.label),
+                      netuids: rows.map((r) => r.netuid),
+                      rows,
+                    };
+                  })
+                  .filter((s) => s.rows.length > 0);
+                const leftover = rowsData.filter((r) => !placed.has(r.netuid)).sort(byWeightDesc);
+                if (leftover.length) {
+                  sections.push({
+                    changeKey: 'other',
+                    label: 'Khác / chưa phân nhóm',
+                    netuids: leftover.map((r) => r.netuid),
+                    rows: leftover,
+                  });
+                }
+                // Fallback: không suy ra được nhóm → một section phẳng.
+                if (!sections.length && rowsData.length) {
+                  sections.push({
+                    changeKey: 'other',
+                    label: 'Tất cả subnet',
+                    netuids: rowsData.map((r) => r.netuid),
+                    rows: rowsData,
+                  });
+                }
 
                 const portfolioReturn = totalWeight > 0 ? totalWeightedChange / totalWeight : null;
                 // Phân loại theo bản nháp đang sửa (nếu có) để thấy ngay tác động của thay đổi.
@@ -1246,7 +1423,30 @@ export default function SavedPortfolios({
                         </div>
                       )}
                       {isEditingWeights && <div className="text-slate-500 font-bold text-center">Xoá</div>}
-                      {rowsData.map(({ netuid, weight, savedPrice, currentSubnet, currentPrice, priceChange }) => (
+                      {sections.map((section, sectionIdx) => (
+                        <Fragment key={`${section.changeKey}-${sectionIdx}`}>
+                          <div className="col-span-full mt-2 first:mt-0 flex flex-wrap items-center justify-between gap-2 rounded border border-slate-700 bg-slate-900/80 px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-bold tracking-wider text-slate-200">
+                                {section.label}
+                              </span>
+                              <span className="tabular-nums text-slate-400">
+                                {section.rows.length} subnet ·{' '}
+                                {(section.rows.reduce((a, r) => a + (Number(r.weight) || 0), 0) * 100).toFixed(2)}%
+                              </span>
+                            </div>
+                            {isEditingWeights && section.netuids.length > 0 && (
+                              <button
+                                className="px-2 py-1 rounded border border-red-400/50 text-red-300 font-bold hover:bg-red-400 hover:text-slate-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={`Xoá cả ${section.rows.length} subnet trong nhóm "${section.label}" — tỷ trọng giải phóng chia cho subnet còn lại`}
+                                disabled={rowsData.length <= section.netuids.length}
+                                onClick={() => removeGroupFromDraft(section.netuids)}
+                              >
+                                ✕ XOÁ CẢ NHÓM ({section.rows.length})
+                              </button>
+                            )}
+                          </div>
+                          {section.rows.map(({ netuid, weight, savedPrice, currentSubnet, currentPrice, priceChange }) => (
                         <Fragment key={netuid}>
                           <div className="text-violet-500 font-bold">#{netuid}</div>
                           <div className="text-slate-100 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -1332,6 +1532,8 @@ export default function SavedPortfolios({
                               </button>
                             </div>
                           )}
+                        </Fragment>
+                          ))}
                         </Fragment>
                       ))}
                       {/* Summary row */}
