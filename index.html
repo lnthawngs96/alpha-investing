@@ -1,12 +1,35 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-theme="dark" data-accent="violet">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Alpha Investing — Subnet 88 Portfolio Builder</title>
+    <!--
+      Áp theme đã lưu TRƯỚC khi React mount để tránh nháy màu (FOUC).
+      Khoá và giá trị mặc định phải khớp với src/constants/theme.ts.
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('subnet_explorer_theme');
+          var pref = raw ? JSON.parse(raw) : null;
+          var mode = (pref && pref.mode) || 'system';
+          var accent = (pref && pref.accent) || 'violet';
+          if (mode === 'system') {
+            mode = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          }
+          document.documentElement.setAttribute('data-theme', mode);
+          document.documentElement.setAttribute('data-accent', accent);
+        } catch (e) {
+          /* Bỏ qua: private mode hoặc storage bị chặn → dùng mặc định. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,143 @@
+/*
+ * Design token của app.
+ *
+ * Hai trục độc lập, đặt trên <html>:
+ *   data-theme  = light | dark | midnight   (nền / chữ / viền)
+ *   data-accent = violet | indigo | sky | emerald | amber | rose   (màu nhấn)
+ *
+ * Tailwind đọc các biến này qua `@theme inline` trong index.css, nên component
+ * chỉ dùng class ngữ nghĩa (bg-surface, text-fg-muted, border-line, bg-accent…)
+ * và tự đổi màu theo theme mà không cần biến thể `dark:`.
+ */
+
+/* ───────────────────────── Mode: LIGHT (mặc định) ───────────────────────── */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  --canvas: #f3f4f9;
+  --surface: #ffffff;
+  --surface-raised: #f6f7fb;
+  --surface-sunken: #eceef5;
+  --line: #e1e4ee;
+  --line-strong: #c6ccdb;
+
+  --fg: #0f172a;
+  --fg-muted: #4b5567;
+  --fg-faint: #98a1b4;
+
+  --positive: #059669;
+  --negative: #dc2626;
+  --warning: #d97706;
+  --info: #0284c7;
+  --code: #047857;
+
+  --accent: var(--accent-light);
+  --accent-strong: var(--accent-light-strong);
+  --on-accent: #ffffff;
+
+  /* Độ đậm của quầng sáng trang trí phía sau header. */
+  --glow-alpha: 0.16;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+}
+
+/* ───────────────────────── Mode: DARK ───────────────────────── */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --canvas: #0b0f1a;
+  --surface: #111827;
+  --surface-raised: #1a2234;
+  --surface-sunken: #0c111d;
+  --line: #222b3f;
+  --line-strong: #334158;
+
+  --fg: #e6eaf3;
+  --fg-muted: #9aa5bb;
+  --fg-faint: #5c6881;
+
+  --positive: #34d399;
+  --negative: #f87171;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+  --code: #6ee7b7;
+
+  --accent: var(--accent-dark);
+  --accent-strong: var(--accent-dark-strong);
+  --on-accent: #ffffff;
+
+  --glow-alpha: 0.22;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.6);
+}
+
+/* ───────────────────────── Mode: MIDNIGHT (đen sâu, OLED) ───────────────────────── */
+[data-theme='midnight'] {
+  color-scheme: dark;
+
+  --canvas: #000000;
+  --surface: #09090f;
+  --surface-raised: #121219;
+  --surface-sunken: #040407;
+  --line: #1d1d29;
+  --line-strong: #2d2d3d;
+
+  --fg: #ececf3;
+  --fg-muted: #a0a0b4;
+  --fg-faint: #5a5a70;
+
+  --positive: #4ade80;
+  --negative: #fb7185;
+  --warning: #fcd34d;
+  --info: #67e8f9;
+  --code: #86efac;
+
+  --accent: var(--accent-dark);
+  --accent-strong: var(--accent-dark-strong);
+  --on-accent: #ffffff;
+
+  --glow-alpha: 0.28;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 32px -16px rgb(0 0 0 / 0.8);
+}
+
+/* ───────────────────────── Accent palettes ─────────────────────────
+ * Mỗi accent có cặp màu cho nền sáng (đậm hơn để đủ tương phản) và nền tối
+ * (nhạt hơn để không chói). `*-strong` là màu khi hover / nhấn.
+ */
+:root,
+[data-accent='violet'] {
+  --accent-light: #7c3aed;
+  --accent-light-strong: #6d28d9;
+  --accent-dark: #8b5cf6;
+  --accent-dark-strong: #a78bfa;
+}
+[data-accent='indigo'] {
+  --accent-light: #4f46e5;
+  --accent-light-strong: #4338ca;
+  --accent-dark: #6366f1;
+  --accent-dark-strong: #818cf8;
+}
+[data-accent='sky'] {
+  --accent-light: #0284c7;
+  --accent-light-strong: #0369a1;
+  --accent-dark: #0ea5e9;
+  --accent-dark-strong: #38bdf8;
+}
+[data-accent='emerald'] {
+  --accent-light: #059669;
+  --accent-light-strong: #047857;
+  --accent-dark: #10b981;
+  --accent-dark-strong: #34d399;
+}
+[data-accent='amber'] {
+  --accent-light: #d97706;
+  --accent-light-strong: #b45309;
+  --accent-dark: #f59e0b;
+  --accent-dark-strong: #fbbf24;
+  --on-accent: #1a1200;
+}
+[data-accent='rose'] {
+  --accent-light: #e11d48;
+  --accent-light-strong: #be123c;
+  --accent-dark: #f43f5e;
+  --accent-dark-strong: #fb7185;
+}

@@ -1,0 +1,95 @@
+/*
+ * Keyframes dùng chung. Tên `--animate-*` tương ứng được khai báo trong
+ * index.css (@theme inline) để dùng dưới dạng class `animate-<tên>`.
+ * Mọi animation đều tôn trọng `prefers-reduced-motion` (xem cuối file).
+ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Thanh tỷ trọng mọc từ trái sang — dùng transform để không gây layout thrash. */
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Chấm trạng thái "đang hoạt động". */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--positive) 60%, transparent); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Ngôi sao lấp lánh trên icon Sparkles. */
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+/* Lắc nhẹ khi báo lỗi. */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+
+/* Quầng sáng gradient trôi chậm phía sau header. */
+@keyframes drift {
+  0% { transform: translate3d(-4%, -6%, 0) scale(1); }
+  50% { transform: translate3d(6%, 4%, 0) scale(1.08); }
+  100% { transform: translate3d(-4%, -6%, 0) scale(1); }
+}
+
+/* Xoay một vòng — dùng cho icon refresh khi hover. */
+@keyframes spin-once {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Tia sét "nháy" (icon Zap). */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 1; }
+  50% { opacity: 0.4; }
+  55% { opacity: 1; }
+}
+
+/* Giọt nước nhún nhẹ (icon Droplet). */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+
+/* Vệt sáng chạy ngang (badge "MỚI", skeleton). */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+/* Tắt animation cho người dùng đã yêu cầu giảm chuyển động. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

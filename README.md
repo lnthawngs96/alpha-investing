@@ -65,7 +65,10 @@ All tools run in the page's own JavaScript, against the same React state the UI 
 
 ```bash
 npm install
-npm run dev
+npm run dev        # Vite dev server
+npm run typecheck  # tsc -b
+npm run lint       # eslint (typescript-eslint + react-hooks)
+npm run build      # tsc -b && vite build
 ```
 
 Paste a JSON array of subnet rows into the Data Input card, or let an agent call `load_subnet_data`. Each row needs at least `netuid`; `name`, `price`, `emission`, `liquidity`, and `price_change_1_day` / `_1_week` / `_1_month` unlock the rest of the features.
@@ -79,14 +82,50 @@ WebMCP requires a secure context, so use `localhost` or an HTTPS deployment.
 
 The green dot in the Agent Activity panel header confirms WebMCP was detected. A grey dot means the browser has not exposed it.
 
+## Project structure
+
+The app is TypeScript (strict) + React 19 + Tailwind v4. Every folder under `src/` has one job:
+
+```
+src/
+  types/        Shared domain types (SubnetRow, Portfolio, SavedPortfolioRecord, WebMCP shapes, theme)
+  constants/    Tunable values only: Tao/Alpha + dedupe rules, metric options, storage keys, theme palettes, editor defaults
+  utils/        Pure functions — no React, no storage side effects except utils/storage.ts
+    subnetData.ts          filter / rank / column helpers for the loaded table
+    portfolioMath.ts       normalisation, redistribution, allocation, generators, safe rebalance
+    portfolioValidation.ts Tao/Alpha validity, L1 alloc vector, dedupe distance / check
+    portfolioGroups.ts     multi-criteria selection + "generate group" membership
+    portfolioJson.ts       relaxed JSON format (weight-desc order) and its parser
+    portfolioFile.ts       export / import JSON files
+    storage.ts             three-tier persistence (localStorage + sessionStorage + history)
+  store/        State that outlives a component: SavedPortfoliosProvider, ThemeProvider, agentLog (external store)
+  hooks/        Reusable stateful logic: useSavedPortfolioEditor (all draft-editing state), useSubnetTiers, useClickOutside
+  webmcp/       WebMCP registration layer + tool definitions (see below)
+  components/
+    ui/         Design-system primitives: Button, Card, Badge, Notice, Select, NumericTextInput, EmptyState…
+    icons/      Inline SVG icons (stroke = currentColor); several animate on hover or via `animated`
+    layout/     AppHeader, TabBar (sliding indicator), ThemeSwitcher
+    data-input/ data-table/ portfolio/ saved/ agent/   feature components, one folder per tab
+  styles/       theme.css (CSS tokens per mode × accent), animations.css (keyframes), index.css (Tailwind bridge)
+scripts/console/  one-off DevTools recovery scripts for saved portfolios (not part of the build)
+```
+
+`@/` resolves to `src/` (see `tsconfig.app.json` and `vite.config.ts`).
+
+### Theming
+
+Colours are CSS custom properties set per `data-theme` (`light`, `dark`, `midnight`) and `data-accent` (`violet`, `indigo`, `sky`, `emerald`, `amber`, `rose`) on `<html>`, mapped into Tailwind through `@theme inline`. Components use semantic classes (`bg-surface`, `text-fg-muted`, `border-line`, `bg-accent/10`, `text-positive`…) and never hard-coded palette colours, so any mode × accent combination just works. The preference is persisted under `subnet_explorer_theme` and applied by an inline script in `index.html` before React mounts to avoid a flash.
+
 ## Implementation notes
 
 The WebMCP layer lives entirely in `src/webmcp/` and is additive — the app works unchanged in browsers without WebMCP.
 
-- `useWebMCP.js` — feature detection, registration lifecycle, error-to-tool-result conversion. The spec is still moving (the 27 May 2026 draft moved the getter from `Navigator` to `Document`, and Chromium 150 deprecated `navigator.modelContext`), so both surfaces are probed, along with both the `registerTool` and older `provideContext` shapes.
-- `useDataTools.js` / `usePortfolioTools.js` — tool definitions, registered by the component that owns the relevant state.
-- `portfolioOps.js` — shared allocation maths and the state report returned to the agent.
-- `agentLog.js` — external store backing the activity panel.
+- `useWebMCP.ts` — feature detection, registration lifecycle, error-to-tool-result conversion. The spec is still moving (the 27 May 2026 draft moved the getter from `Navigator` to `Document`, and Chromium 150 deprecated `navigator.modelContext`), so both surfaces are probed, along with both the `registerTool` and older `provideContext` shapes.
+- `useDataTools.ts` / `usePortfolioTools.ts` — tool definitions, registered by the component that owns the relevant state.
+- `portfolioOps.ts` — the state report returned to the agent (allocation maths lives in `utils/portfolioMath.ts`).
+- `store/agentLog.ts` — external store backing the activity panel.
+
+Every registered tool is also exposed on `window.__webmcpTools` so the exact `execute()` an agent would call can be exercised from DevTools even in browsers without WebMCP.
 
 Two details worth calling out for anyone wiring WebMCP into a React app:
 
