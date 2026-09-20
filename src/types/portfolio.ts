@@ -17,9 +17,15 @@ export type WeightMap = Record<string, number>;
 /** Khoá nhóm generate: một chỉ số, hoặc 'other' cho subnet chưa phân nhóm. */
 export type GroupKey = MetricKey | 'other' | string;
 
-/** Một tiêu chí chọn subnet: top `n` theo `changeKey`. */
+/**
+ * Một nhóm tiêu chí chọn subnet: top `n` theo một hoặc nhiều `changeKeys`.
+ * Bản ghi cũ chỉ có `changeKey` — dùng `selectionKeys()` để chuẩn hoá.
+ */
 export interface Selection {
-  changeKey: GroupKey;
+  /** @deprecated Dùng `changeKeys`; giữ để đọc danh mục đã lưu cũ. */
+  changeKey?: GroupKey;
+  /** Các chỉ số trong nhóm (ít nhất 1). */
+  changeKeys?: GroupKey[];
   n: number;
 }
 

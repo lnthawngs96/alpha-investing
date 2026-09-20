@@ -77,7 +77,7 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
       rows.forEach((r) => placed.add(r.netuid));
       return {
         changeKey: g.changeKey,
-        label: groupLabel(g.changeKey, g.label),
+        label: groupLabel(g, g.label),
         netuids: rows.map((r) => r.netuid),
         rows,
       };
@@ -146,12 +146,12 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
             addTopN={editor.addTopN}
             addTakePct={editor.addTakePct}
             addSplitMode={editor.addSplitMode}
-            addChangeKey={editor.addChangeKey}
+            addChangeKeys={editor.addChangeKeys}
             addition={draft.addition}
             hasData={currentData.length > 0}
             tiers={tiers}
             onApplyDraft={editor.applyDraft}
-            onChangeAddChangeKey={editor.changeAddChangeKey}
+            onChangeAddChangeKeys={editor.changeAddChangeKeys}
             onCandidateLimit={editor.setCandidateLimit}
             onPickCandidates={editor.pickCandidates}
             onToggleCandidate={editor.toggleCandidate}

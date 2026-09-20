@@ -14,27 +14,41 @@ import { buildNameMap } from '@/utils/subnetData';
 import { useWebMCPTools, useLatest } from './useWebMCP';
 import { describePortfolio } from './portfolioOps';
 
-/** Một nhóm tiêu chí theo cách agent gọi (metric + count). */
+/** Một nhóm tiêu chí theo cách agent gọi (một hoặc nhiều metric + count). */
 interface AgentSelection {
-  metric: MetricKey;
+  /** Một chỉ số (tương thích cũ) hoặc mảng chỉ số trong cùng nhóm. */
+  metric?: MetricKey;
+  metrics?: MetricKey[];
   count: number;
 }
 
 const selectionSchema = {
   type: 'object',
   properties: {
-    metric: { type: 'string', enum: METRIC_KEYS },
+    metric: { type: 'string', enum: METRIC_KEYS, description: 'Một chỉ số (tương thích).' },
+    metrics: {
+      type: 'array',
+      items: { type: 'string', enum: METRIC_KEYS },
+      minItems: 1,
+      description: 'Nhiều chỉ số trong cùng nhóm (ưu tiên hơn metric).',
+    },
     count: { type: 'integer', minimum: 1, maximum: TOP_N_MAX },
   },
-  required: ['metric', 'count'],
+  required: ['count'],
 } as const;
+
+function agentKeys(g: AgentSelection): MetricKey[] {
+  if (Array.isArray(g.metrics) && g.metrics.length) return g.metrics;
+  if (g.metric) return [g.metric];
+  return [];
+}
 
 export interface PortfolioToolsDeps {
   allData: SubnetRow[];
   savedPortfolios: SavedPortfolioRecord[];
   portfolio: Portfolio | null;
   applyPortfolio: (next: Portfolio) => void;
-  generate: (selections: [Selection, Selection]) => Portfolio | null;
+  generate: (selections: Selection[]) => Portfolio | null;
   save: (name?: string) => SaveResult;
 }
 
@@ -64,36 +78,76 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
     {
       name: 'generate_portfolio',
       description:
-        'Dựng một danh mục mới từ hai nhóm tiêu chí. Mỗi nhóm chọn top N subnet theo một chỉ số; hai nhóm được gộp lại và loại trùng (nhóm sau lấy subnet kế tiếp nếu bị trùng với nhóm trước). Danh mục cuối được phân bổ giảm dần theo thanh khoản, trần 5% mỗi subnet, tổng bằng 1. Thao tác này ghi đè danh mục đang dựng. Nếu tab hiện tại không phải "portfolio" (xem active_tab từ get_app_state), gọi switch_tab("portfolio") trước hoặc ngay sau khi gọi tool này, để người dùng nhìn thấy danh mục đang được dựng thay vì màn hình cũ.',
+        'Dựng một danh mục mới từ một hoặc nhiều nhóm tiêu chí (groups[]). Mỗi nhóm chọn top N subnet theo một hoặc nhiều chỉ số (metrics[]); các nhóm được gộp tuần tự và loại trùng (nhóm sau lấy subnet kế tiếp nếu bị trùng). Trong một nhóm, các chỉ số được lấy xen kẽ (round-robin) cho đủ N. Các nhóm không được trùng chỉ số. Danh mục cuối phân bổ giảm dần theo thanh khoản, trần 5% mỗi subnet, tổng bằng 1. Ghi đè danh mục đang dựng. Có thể truyền group1/group2 (tương thích cũ) thay cho groups. Nếu tab không phải "portfolio", gọi switch_tab("portfolio") để người dùng thấy kết quả.',
       inputSchema: {
         type: 'object',
         properties: {
-          group1: { ...selectionSchema, description: 'Nhóm neo, thường là thanh khoản.' },
-          group2: { ...selectionSchema, description: 'Nhóm bổ sung, thường là tăng trưởng.' },
+          groups: {
+            type: 'array',
+            minItems: 1,
+            maxItems: METRIC_KEYS.length,
+            items: selectionSchema,
+            description: 'Danh sách nhóm tiêu chí (ưu tiên). Mỗi phần tử: metrics[] + count.',
+          },
+          group1: { ...selectionSchema, description: 'Tương thích cũ — nhóm 1 nếu không truyền groups.' },
+          group2: { ...selectionSchema, description: 'Tương thích cũ — nhóm 2 nếu không truyền groups.' },
         },
-        required: ['group1', 'group2'],
       },
-      execute: async ({ group1, group2 }: { group1: AgentSelection; group2: AgentSelection }) => {
+      execute: async ({
+        groups,
+        group1,
+        group2,
+      }: {
+        groups?: AgentSelection[];
+        group1?: AgentSelection;
+        group2?: AgentSelection;
+      }) => {
         const { allData: data } = state.current;
         if (!data.length) throw new Error('Chưa có dữ liệu. Gọi load_subnet_data trước.');
-        for (const [label, g] of [
-          ['group1', group1],
-          ['group2', group2],
-        ] as const) {
-          if (!g || !METRIC_KEYS.includes(g.metric)) {
-            throw new Error(`${label}.metric phải là một trong: ${METRIC_KEYS.join(', ')}`);
+
+        const rawGroups: AgentSelection[] =
+          Array.isArray(groups) && groups.length
+            ? groups
+            : [group1, group2].filter((g): g is AgentSelection => Boolean(g));
+
+        if (!rawGroups.length) {
+          throw new Error('Cần groups[] (hoặc group1/group2) với ít nhất 1 nhóm.');
+        }
+
+        const parsed: { keys: MetricKey[]; count: number }[] = [];
+        const seen = new Set<MetricKey>();
+        for (let i = 0; i < rawGroups.length; i++) {
+          const label = `groups[${i}]`;
+          const g = rawGroups[i];
+          const keys = agentKeys(g);
+          if (!keys.length) throw new Error(`${label} cần metric hoặc metrics[] không rỗng.`);
+          for (const m of keys) {
+            if (!METRIC_KEYS.includes(m)) {
+              throw new Error(`${label}: "${m}" phải là một trong: ${METRIC_KEYS.join(', ')}`);
+            }
+            if (seen.has(m)) {
+              throw new Error(`Chỉ số "${m}" bị trùng giữa các nhóm.`);
+            }
+            seen.add(m);
           }
+          const count = Math.floor(Number(g.count));
+          if (!Number.isFinite(count) || count < 1) {
+            throw new Error(`${label}.count phải là số nguyên ≥ 1.`);
+          }
+          parsed.push({ keys, count: Math.min(count, TOP_N_MAX) });
         }
-        if (group1.metric === group2.metric) {
-          throw new Error('Hai nhóm phải dùng hai chỉ số khác nhau.');
-        }
-        const next = state.current.generate([
-          { changeKey: group1.metric, n: group1.count },
-          { changeKey: group2.metric, n: group2.count },
-        ]);
+
+        const selections: Selection[] = parsed.map(({ keys, count }) => ({
+          changeKey: keys[0],
+          changeKeys: keys,
+          n: count,
+        }));
+        const next = state.current.generate(selections);
         if (!next) throw new Error('Không dựng được danh mục từ tiêu chí này.');
         return report(next, {
-          log: `Dựng danh mục: top ${group1.count} ${group1.metric} + top ${group2.count} ${group2.metric}`,
+          log: `Dựng danh mục (${parsed.length} nhóm): ${parsed
+            .map((p) => `top ${p.count} [${p.keys.join(', ')}]`)
+            .join(' + ')}`,
         });
       },
     },

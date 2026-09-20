@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import type {
-  GroupKey,
   MetricKey,
   Portfolio,
   SavedPortfolioRecord,
@@ -9,7 +8,7 @@ import type {
   SubnetRow,
   WeightMap,
 } from '@/types';
-import { DD_TRIGGER, DEDUPE_SAFE_MARGIN, OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
+import { DD_TRIGGER, DEDUPE_SAFE_MARGIN, OTHER_GROUP_KEY, OTHER_GROUP_LABEL, CHANGE_DEFAULT } from '@/constants/portfolio';
 import {
   DEFAULT_ADD_TAKE_PCT,
   DEFAULT_ADD_TOP_N,
@@ -30,9 +29,19 @@ import {
   type RedistributeResult,
 } from '@/utils/portfolioMath';
 import { checkDedupe, dedupeDistance, validateTaoAlphaPortfolio } from '@/utils/portfolioValidation';
-import { cloneGroupWithLabel, groupLabel, resolvePortfolioGroups } from '@/utils/portfolioGroups';
+import {
+  bestMetricValue,
+  cloneGroupWithLabel,
+  ensureMetricKeys,
+  groupLabel,
+  metricsLabel,
+  primaryChangeKey,
+  resolvePortfolioGroups,
+  sameMetricSet,
+  selectionKeys,
+} from '@/utils/portfolioGroups';
 import { formatPortfolioJson, parseRelaxedPortfolioJson } from '@/utils/portfolioJson';
-import { findSubnet, getMetricValue, isRootSubnet } from '@/utils/subnetData';
+import { findSubnet, isRootSubnet } from '@/utils/subnetData';
 
 /** Ứng viên để thêm vào danh mục đang sửa. */
 export interface AddCandidate {
@@ -99,13 +108,13 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
   // addOverrides = tỷ trọng người dùng gõ tay đè lên phần được cấp tự động,
   // addTakePct / addTopN = lấy bao nhiêu % tỷ trọng của mỗi subnet trong top mấy subnet lớn nhất,
   // addSplitMode = 'decreasing' (chia giảm dần theo thứ tự) | 'equal' (chia đều),
-  // addChangeKey = tiêu chí xếp hạng ứng viên (mặc định tăng trưởng 1 ngày).
+  // addChangeKeys = tiêu chí xếp hạng ứng viên (có thể nhiều; mặc định filterKey).
   const [addedIds, setAddedIds] = useState<string[]>([]);
   const [addOverrides, setAddOverrides] = useState<WeightMap>({});
   const [addTopN, setAddTopN] = useState(DEFAULT_ADD_TOP_N);
   const [addTakePct, setAddTakePct] = useState(DEFAULT_ADD_TAKE_PCT);
   const [addSplitMode, setAddSplitMode] = useState<SplitMode>('decreasing');
-  const [addChangeKey, setAddChangeKey] = useState<MetricKey>(filterKey);
+  const [addChangeKeys, setAddChangeKeys] = useState<MetricKey[]>([filterKey]);
   const [candidateLimit, setCandidateLimit] = useState(DEFAULT_CANDIDATE_LIMIT);
   // Membership nhóm generate khi đang sửa (để xoá cả cụm / gắn subnet mới vào đúng nhóm).
   const [draftGroups, setDraftGroups] = useState<SelectionGroup[]>([]);
@@ -121,15 +130,16 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
   const candidates = useMemo<AddCandidate[]>(() => {
     if (editingWeightsIdx == null) return [];
     const inPortfolio = new Set(Object.keys(baseWeights));
+    const keys = addChangeKeys.length ? addChangeKeys : [filterKey];
     return (currentData || [])
       .filter((r) => !isRootSubnet(r) && !inPortfolio.has(String(r.netuid)))
       .map((r) => ({
         netuid: String(r.netuid),
         name: r.name || 'Unknown',
-        change: getMetricValue(r, addChangeKey),
+        change: bestMetricValue(r, keys),
       }))
       .sort((a, b) => (isNaN(b.change) ? -Infinity : b.change) - (isNaN(a.change) ? -Infinity : a.change));
-  }, [currentData, baseWeights, addChangeKey, editingWeightsIdx]);
+  }, [currentData, baseWeights, addChangeKeys, filterKey, editingWeightsIdx]);
 
   /** Hiện thông báo kết quả cho danh mục `idx` rồi tự ẩn sau `ms`. */
   function flashMessage(idx: number, message: StatusMessage, ms: number) {
@@ -150,10 +160,11 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
    * Dùng để addedIds luôn đi từ subnet tăng mạnh nhất xuống thấp — subnet đầu danh sách
    * nhận phần tỷ trọng lớn nhất khi chia giảm dần.
    */
-  function sortIdsByChange(ids: string[], key: string): string[] {
+  function sortIdsByChange(ids: string[], keys: MetricKey[]): string[] {
+    const keyList = keys.length ? keys : [filterKey];
     const valueOf = (id: string) => {
       const row = findSubnet(currentData, id);
-      const v = row ? getMetricValue(row, key) : NaN;
+      const v = row ? bestMetricValue(row, keyList) : NaN;
       return isNaN(v) ? -Infinity : v;
     };
     return [...ids].sort((a, b) => valueOf(b) - valueOf(a));
@@ -180,7 +191,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
     setAddTopN(DEFAULT_ADD_TOP_N);
     setAddTakePct(DEFAULT_ADD_TAKE_PCT);
     setAddSplitMode('decreasing');
-    setAddChangeKey(filterKey);
+    setAddChangeKeys([filterKey]);
     setCandidateLimit(DEFAULT_CANDIDATE_LIMIT);
     setWeightDrafts(Object.fromEntries(Object.entries(base).map(([id, v]) => [id, formatCompactPercent(v)])));
     const saved = savedList[idx];
@@ -383,26 +394,28 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
 
   // ── Thêm subnet mới ───────────────────────────────────────────────────────
 
-  /** Gắn subnet mới vào nhóm khớp tiêu chí đang chọn (thường = tăng trưởng 1 ngày). */
-  function assignIdsToDraftGroup(ids: string[], changeKey: GroupKey) {
+  /** Gắn subnet mới vào nhóm khớp bộ tiêu chí đang chọn. */
+  function assignIdsToDraftGroup(ids: string[], keys: MetricKey[]) {
     const incoming = [...new Set(ids.map(String))];
     if (!incoming.length) return;
+    const changeKeys = ensureMetricKeys(keys, CHANGE_DEFAULT);
     setDraftGroups((gs) => {
       const without = gs.map((g) => ({
         ...g,
         netuids: g.netuids.filter((id) => !incoming.includes(id)),
       }));
-      const idx = without.findIndex((g) => g.changeKey === changeKey);
+      const idx = without.findIndex((g) => sameMetricSet(selectionKeys(g), changeKeys));
       if (idx >= 0) {
         return without.map((g, i) => (i === idx ? { ...g, netuids: [...g.netuids, ...incoming] } : g));
       }
       return [
         ...without,
         {
-          changeKey,
+          changeKey: changeKeys[0],
+          changeKeys,
           n: incoming.length,
           netuids: incoming,
-          label: groupLabel(changeKey),
+          label: metricsLabel(changeKeys),
         },
       ];
     });
@@ -410,9 +423,9 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
 
   function pickCandidates(ids: Array<string | number>) {
     const merged = [...new Set([...addedIds, ...ids.map(String)])];
-    const sorted = sortIdsByChange(merged, addChangeKey);
+    const sorted = sortIdsByChange(merged, addChangeKeys);
     const newly = sorted.filter((id) => !addedIds.includes(id));
-    assignIdsToDraftGroup(newly, addChangeKey);
+    assignIdsToDraftGroup(newly, addChangeKeys);
     applyDraft({ added: sorted });
   }
 
@@ -420,9 +433,10 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
    * Đổi tiêu chí xếp hạng → xếp lại cả danh sách đã chọn để thứ tự nhận tỷ trọng
    * luôn khớp với tiêu chí đang xem.
    */
-  function changeAddChangeKey(key: MetricKey) {
-    setAddChangeKey(key);
-    applyDraft({ added: sortIdsByChange(addedIds, key) });
+  function changeAddChangeKeys(keys: MetricKey[]) {
+    const next = ensureMetricKeys(keys, CHANGE_DEFAULT);
+    setAddChangeKeys(next);
+    applyDraft({ added: sortIdsByChange(addedIds, next) });
   }
 
   function unpickCandidate(netuid: string | number) {
@@ -497,10 +511,11 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
         const ids = g.netuids.filter((id) => keep.has(id) && !seen.has(id));
         ids.forEach((id) => seen.add(id));
         return {
-          changeKey: g.changeKey,
+          changeKey: primaryChangeKey(g),
+          changeKeys: selectionKeys(g),
           n: ids.length,
           netuids: ids,
-          label: groupLabel(g.changeKey, g.label),
+          label: groupLabel(g, g.label),
         };
       })
       .filter((g) => g.netuids.length > 0);
@@ -652,7 +667,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
     addTopN,
     addTakePct,
     addSplitMode,
-    addChangeKey,
+    addChangeKeys,
     candidateLimit,
     draftGroups,
     editingJsonIdx,
@@ -676,7 +691,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
     clearReceivers,
     changeReceiveMode,
     pickCandidates,
-    changeAddChangeKey,
+    changeAddChangeKeys,
     toggleCandidate,
     clearCandidates,
     applyWeightEdits,

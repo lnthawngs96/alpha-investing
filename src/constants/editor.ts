@@ -22,9 +22,15 @@ export type SplitMode = 'decreasing' | 'equal';
 /** Ai nhận phần tỷ trọng giải phóng khi bỏ subnet: tất cả còn lại hay chỉ subnet được tick. */
 export type ReceiveMode = 'all' | 'pick';
 
-/** Số subnet mặc định cho hai nhóm generate ở tab tạo danh mục. */
+/** Số subnet mặc định cho các nhóm generate ở tab tạo danh mục. */
 export const DEFAULT_GROUP1_COUNT = '30';
 export const DEFAULT_GROUP2_COUNT = '10';
+export const DEFAULT_EXTRA_GROUP_COUNT = '10';
+
+/** Số nhóm tiêu chí tối thiểu / tối đa khi generate danh mục. */
+export const MIN_SELECTION_GROUPS = 1;
+/** Trần = số chỉ số có sẵn (mỗi nhóm cần ≥ 1 chỉ số không trùng nhóm khác). */
+export const MAX_SELECTION_GROUPS = 9;
 
 /** Thời gian (ms) hiển thị thông báo tạm thời. */
 export const TOAST_SUCCESS_MS = 2500;

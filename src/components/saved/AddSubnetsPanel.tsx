@@ -7,6 +7,7 @@ import type { AddCandidate, DraftPatch } from '@/hooks/useSavedPortfolioEditor';
 import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { cn } from '@/utils/classNames';
 import { formatMetric } from '@/utils/format';
+import { ensureMetricKeys, metricsLabel } from '@/utils/portfolioGroups';
 import { Button, NumericTextInput, Select } from '@/components/ui';
 import { PlusIcon } from '@/components/icons';
 import { TierCell } from './TierBadge';
@@ -19,14 +20,14 @@ export interface AddSubnetsPanelProps {
   addTopN: number;
   addTakePct: number;
   addSplitMode: SplitMode;
-  addChangeKey: MetricKey;
+  addChangeKeys: MetricKey[];
   /** Kết quả tầng "addition" của bản nháp. */
   addition: AllocateResult;
   /** true khi có data table (để phân biệt "không còn ứng viên" với "chưa nạp data"). */
   hasData: boolean;
   tiers: SubnetTiers;
   onApplyDraft: (patch: DraftPatch) => void;
-  onChangeAddChangeKey: (key: MetricKey) => void;
+  onChangeAddChangeKeys: (keys: MetricKey[]) => void;
   onCandidateLimit: (n: number) => void;
   onPickCandidates: (ids: string[]) => void;
   onToggleCandidate: (id: string) => void;
@@ -34,9 +35,8 @@ export interface AddSubnetsPanelProps {
 }
 
 /**
- * Bảng "Thêm subnet tăng trưởng": chọn tiêu chí xếp hạng ứng viên, tham số trích
- * tỷ trọng (lấy X% của top N lớn nhất, chia giảm dần / đều) và danh sách ứng viên
- * để tick.
+ * Bảng "Thêm subnet tăng trưởng": chọn một hoặc nhiều tiêu chí xếp hạng ứng viên,
+ * tham số trích tỷ trọng và danh sách ứng viên để tick.
  */
 export function AddSubnetsPanel({
   candidates,
@@ -46,12 +46,12 @@ export function AddSubnetsPanel({
   addTopN,
   addTakePct,
   addSplitMode,
-  addChangeKey,
+  addChangeKeys,
   addition,
   hasData,
   tiers,
   onApplyDraft,
-  onChangeAddChangeKey,
+  onChangeAddChangeKeys,
   onCandidateLimit,
   onPickCandidates,
   onToggleCandidate,
@@ -59,6 +59,16 @@ export function AddSubnetsPanel({
 }: AddSubnetsPanelProps) {
   const overrideCount = Object.keys(addOverrides).length;
   const visible = candidates.slice(0, candidateLimit);
+  const displayKey = addChangeKeys[0];
+
+  function toggleKey(key: MetricKey) {
+    if (addChangeKeys.includes(key)) {
+      if (addChangeKeys.length <= 1) return;
+      onChangeAddChangeKeys(addChangeKeys.filter((k) => k !== key));
+      return;
+    }
+    onChangeAddChangeKeys(ensureMetricKeys([...addChangeKeys, key], key));
+  }
 
   return (
     <div className="mb-3 flex flex-col gap-2 rounded-lg border border-info/60 bg-info/10 p-3 text-xs animate-slide-down">
@@ -66,17 +76,6 @@ export function AddSubnetsPanel({
         <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-info">
           <PlusIcon size={13} strokeWidth={2.5} /> Thêm subnet tăng trưởng
         </span>
-        <Select
-          value={addChangeKey}
-          onChange={(e) => onChangeAddChangeKey(e.target.value as MetricKey)}
-          title="Tiêu chí xếp hạng ứng viên (subnet chưa có trong danh mục này)"
-        >
-          {CHANGE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </Select>
         <label
           className="flex items-center gap-1 text-fg"
           title="Mỗi subnet trong top lớn nhất nhả ra bấy nhiêu % TỶ TRỌNG CỦA CHÍNH NÓ (vd 10% của 4% = 0.4%)"
@@ -103,6 +102,34 @@ export function AddSubnetsPanel({
             <option value="equal">đều nhau</option>
           </Select>
         </label>
+      </div>
+
+      <div className="rounded border border-info/40 bg-surface/40 p-2">
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-info">
+          Tiêu chí xếp hạng · {metricsLabel(addChangeKeys)}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {CHANGE_OPTIONS.map((opt) => {
+            const checked = addChangeKeys.includes(opt.value);
+            return (
+              <label
+                key={opt.value}
+                className={cn(
+                  'inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-fg',
+                  checked && 'font-semibold text-info'
+                )}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-info"
+                  checked={checked}
+                  onChange={() => toggleKey(opt.value)}
+                />
+                {opt.label}
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {addedIds.length > 0 ? (
@@ -201,7 +228,7 @@ export function AddSubnetsPanel({
                               : 'text-fg-muted'
                       )}
                     >
-                      {isNaN(c.change) ? '—' : formatMetric(c.change, addChangeKey)}
+                      {isNaN(c.change) ? '—' : formatMetric(c.change, displayKey)}
                     </span>
                     <span>
                       <TierCell netuid={c.netuid} tiers={tiers} />
