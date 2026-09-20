@@ -2,7 +2,7 @@ import type { SavedPortfolioRecord, SubnetRow } from '@/types';
 import { OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
 import type { SavedPortfolioEditor } from '@/hooks/useSavedPortfolioEditor';
 import type { SubnetTiers } from '@/hooks/useSubnetTiers';
-import { groupLabel, resolvePortfolioGroups } from '@/utils/portfolioGroups';
+import { groupLabel, primaryChangeKey, resolvePortfolioGroups } from '@/utils/portfolioGroups';
 import { findSubnet } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { TierSummaryPanel } from './TierSummaryPanel';
@@ -76,7 +76,7 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
         .sort(byWeightDesc);
       rows.forEach((r) => placed.add(r.netuid));
       return {
-        changeKey: g.changeKey,
+        changeKey: primaryChangeKey(g),
         label: groupLabel(g, g.label),
         netuids: rows.map((r) => r.netuid),
         rows,
