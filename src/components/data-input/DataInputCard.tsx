@@ -14,7 +14,7 @@ export interface DataInputCardProps {
 }
 
 const PLACEHOLDER = `[
-  { "netuid": 1, "name": "...", "price_change_1_day": "2.5", ... },
+  { "netuid": 1, "name": "...", "price_change_1_hour": "1.2", "fear_and_greed_index": 42, ... },
   { "netuid": 2, ... }
 ]`;
 

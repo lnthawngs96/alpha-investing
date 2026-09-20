@@ -1,4 +1,10 @@
 import type { SubnetRow } from '@/types';
+import {
+  FEAR_AND_GREED_FIELD,
+  FEAR_GREED_FEAR_MAX,
+  FEAR_GREED_NEUTRAL_MAX,
+  FEAR_GREED_NEUTRAL_MIN,
+} from '@/constants/portfolio';
 import { EXCLUDED_SUBNET_SET } from '@/constants/excludedSubnets';
 import { isPrimitive } from './format';
 import { numberOrNegInfinity, toNumber } from './numeric';
@@ -23,12 +29,46 @@ export function getSubnetPool(data: SubnetRow[]): SubnetRow[] {
 }
 
 /**
+ * Đọc giá trị tiêu chí xếp hạng từ một dòng subnet.
+ * Fear / Neutral không phải cột thô — lấy từ `fear_and_greed_index` nếu khớp vùng
+ * (số 0–100) hoặc nhãn chuỗi chứa "fear" / "neutral".
+ */
+export function getMetricValue(row: SubnetRow, key: string): number {
+  if (key === 'fear_and_greed_fear') {
+    return fearGreedBandValue(row, 'fear');
+  }
+  if (key === 'fear_and_greed_neutral') {
+    return fearGreedBandValue(row, 'neutral');
+  }
+  return toNumber(row[key]);
+}
+
+/** Giá trị fear_and_greed_index nếu nằm trong band; NaN nếu không khớp / thiếu. */
+function fearGreedBandValue(row: SubnetRow, band: 'fear' | 'neutral'): number {
+  const raw = row[FEAR_AND_GREED_FIELD];
+  if (typeof raw === 'string' && raw.trim() !== '' && isNaN(Number(raw))) {
+    const s = raw.toLowerCase();
+    if (band === 'fear') {
+      // "Fear" / "Extreme Fear" — không lấy nhãn Greed.
+      if (/\bfear\b/.test(s) && !/\bgreed\b/.test(s)) return 1;
+      return NaN;
+    }
+    if (/\bneutral\b/.test(s)) return 1;
+    return NaN;
+  }
+  const v = toNumber(raw);
+  if (isNaN(v)) return NaN;
+  if (band === 'fear') return v >= 0 && v <= FEAR_GREED_FEAR_MAX ? v : NaN;
+  return v >= FEAR_GREED_NEUTRAL_MIN && v <= FEAR_GREED_NEUTRAL_MAX ? v : NaN;
+}
+
+/**
  * So sánh giảm dần theo một chỉ số; giá trị thiếu / không phải số bị đẩy xuống cuối.
  * Dùng chung cho mọi chỗ sắp xếp subnet theo tiêu chí.
  */
 export function compareByMetricDesc(key: string) {
   return (a: SubnetRow, b: SubnetRow): number =>
-    numberOrNegInfinity(b[key]) - numberOrNegInfinity(a[key]);
+    numberOrNegInfinity(getMetricValue(b, key)) - numberOrNegInfinity(getMetricValue(a, key));
 }
 
 /** Danh sách cột hiển thị: mọi key xuất hiện trong data có ít nhất một giá trị nguyên thuỷ. */
@@ -46,10 +86,10 @@ export function getFilteredSubnets(
 ): SubnetRow[] {
   return data
     .filter((r) => {
-      const v = toNumber(r[filterKey]);
+      const v = getMetricValue(r, filterKey);
       return !isNaN(v) && v >= min && v <= max;
     })
-    .sort((a, b) => toNumber(b[filterKey]) - toNumber(a[filterKey]));
+    .sort((a, b) => getMetricValue(b, filterKey) - getMetricValue(a, filterKey));
 }
 
 /**
@@ -72,8 +112,8 @@ export function getTopNByChange(data: SubnetRow[], n: number, changeKey: string)
 export function buildRankIndex(data: SubnetRow[] | null | undefined, field: string): Map<string, number> {
   const index = new Map<string, number>();
   (data || [])
-    .filter((r) => !isRootSubnet(r) && !isNaN(toNumber(r[field])))
-    .sort((a, b) => toNumber(b[field]) - toNumber(a[field]))
+    .filter((r) => !isRootSubnet(r) && !isNaN(getMetricValue(r, field)))
+    .sort((a, b) => getMetricValue(b, field) - getMetricValue(a, field))
     .forEach((r, i) => index.set(String(r.netuid), i + 1));
   return index;
 }

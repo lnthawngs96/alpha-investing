@@ -1,7 +1,7 @@
 import type { MetricKey, SavedPortfolioRecord, SubnetRow, TabKey, WeightMap } from '@/types';
 import { DD_TRIGGER, METRIC_KEYS, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
 import { TAB_KEYS } from '@/constants/tabs';
-import { buildColumns, getTopNByChange } from '@/utils/subnetData';
+import { buildColumns, getMetricValue, getTopNByChange } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { withAssetClass } from '@/utils/portfolioMath';
 import { checkDedupe } from '@/utils/portfolioValidation';
@@ -31,7 +31,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'load_subnet_data',
       description:
-        'Nạp bảng dữ liệu subnet Bittensor vào app. Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_day/1_week/1_month. Agent có thể lấy dữ liệu này từ nguồn bên ngoài rồi nạp vào đây thay cho việc người dùng dán tay. Subnet 0 và các subnet trong danh sách loại trừ sẽ tự động bị bỏ.',
+        'Nạp bảng dữ liệu subnet Bittensor vào app. Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Agent có thể lấy dữ liệu này từ nguồn bên ngoài rồi nạp vào đây thay cho việc người dùng dán tay. Subnet 0 và các subnet trong danh sách loại trừ sẽ tự động bị bỏ.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -114,7 +114,7 @@ export function useDataTools(deps: DataToolsDeps): void {
           subnets: rows.map((r) => ({
             netuid: Number(r.netuid),
             name: r.name,
-            value: toNumber(r[metric]),
+            value: getMetricValue(r, metric),
             price: r.price !== undefined ? toNumber(r.price) : undefined,
             liquidity: r.liquidity !== undefined ? toNumber(r.liquidity) : undefined,
           })),

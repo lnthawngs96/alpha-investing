@@ -32,7 +32,7 @@ import {
 import { checkDedupe, dedupeDistance, validateTaoAlphaPortfolio } from '@/utils/portfolioValidation';
 import { cloneGroupWithLabel, groupLabel, resolvePortfolioGroups } from '@/utils/portfolioGroups';
 import { formatPortfolioJson, parseRelaxedPortfolioJson } from '@/utils/portfolioJson';
-import { findSubnet, isRootSubnet } from '@/utils/subnetData';
+import { findSubnet, getMetricValue, isRootSubnet } from '@/utils/subnetData';
 
 /** Ứng viên để thêm vào danh mục đang sửa. */
 export interface AddCandidate {
@@ -126,7 +126,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       .map((r) => ({
         netuid: String(r.netuid),
         name: r.name || 'Unknown',
-        change: toNumber(r[addChangeKey]),
+        change: getMetricValue(r, addChangeKey),
       }))
       .sort((a, b) => (isNaN(b.change) ? -Infinity : b.change) - (isNaN(a.change) ? -Infinity : a.change));
   }, [currentData, baseWeights, addChangeKey, editingWeightsIdx]);
@@ -152,7 +152,8 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
    */
   function sortIdsByChange(ids: string[], key: string): string[] {
     const valueOf = (id: string) => {
-      const v = toNumber(findSubnet(currentData, id)?.[key]);
+      const row = findSubnet(currentData, id);
+      const v = row ? getMetricValue(row, key) : NaN;
       return isNaN(v) ? -Infinity : v;
     };
     return [...ids].sort((a, b) => valueOf(b) - valueOf(a));

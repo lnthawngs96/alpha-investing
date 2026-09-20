@@ -8,18 +8,29 @@ export const PRICE_FIELD: MetricKey = 'price';
 export const EMISSION_FIELD: MetricKey = 'emission';
 export const LIQUIDITY_FIELD: MetricKey = 'liquidity';
 
+/** Cột Fear & Greed trên dòng subnet (số 0–100 hoặc nhãn). */
+export const FEAR_AND_GREED_FIELD = 'fear_and_greed_index';
+/** Fear (gồm Extreme Fear): 0–44 theo thang phổ biến Alternative.me. */
+export const FEAR_GREED_FEAR_MAX = 44;
+/** Neutral: 45–54. */
+export const FEAR_GREED_NEUTRAL_MIN = 45;
+export const FEAR_GREED_NEUTRAL_MAX = 54;
+
 /** Số subnet tối đa cho một nhóm generate. */
 export const TOP_N_MAX = 100;
 export const TOP_N_DEFAULT = 100;
 
 /** Các tiêu chí có thể chọn trong dropdown nhóm generate. */
 export const CHANGE_OPTIONS: readonly MetricOption[] = [
+  { value: 'price_change_1_hour', label: 'Tăng trưởng 1 giờ' },
   { value: 'price_change_1_day', label: 'Tăng trưởng 1 ngày' },
   { value: 'price_change_1_week', label: 'Tăng trưởng 1 tuần' },
   { value: 'price_change_1_month', label: 'Tăng trưởng 1 tháng' },
   { value: PRICE_FIELD, label: 'Giá (cao → thấp)' },
   { value: EMISSION_FIELD, label: 'Emission (cao → thấp)' },
   { value: LIQUIDITY_FIELD, label: 'Thanh khoản (cao → thấp)' },
+  { value: 'fear_and_greed_fear', label: 'Fear (Fear & Greed)' },
+  { value: 'fear_and_greed_neutral', label: 'Neutral (Fear & Greed)' },
 ];
 export const CHANGE_DEFAULT: MetricKey = 'price_change_1_day';
 

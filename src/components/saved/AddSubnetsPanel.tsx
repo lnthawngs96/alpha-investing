@@ -6,6 +6,7 @@ import type { AllocateResult } from '@/utils/portfolioMath';
 import type { AddCandidate, DraftPatch } from '@/hooks/useSavedPortfolioEditor';
 import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { cn } from '@/utils/classNames';
+import { formatMetric } from '@/utils/format';
 import { Button, NumericTextInput, Select } from '@/components/ui';
 import { PlusIcon } from '@/components/icons';
 import { TierCell } from './TierBadge';
@@ -200,7 +201,7 @@ export function AddSubnetsPanel({
                               : 'text-fg-muted'
                       )}
                     >
-                      {isNaN(c.change) ? '—' : `${c.change > 0 ? '+' : ''}${c.change.toFixed(2)}%`}
+                      {isNaN(c.change) ? '—' : formatMetric(c.change, addChangeKey)}
                     </span>
                     <span>
                       <TierCell netuid={c.netuid} tiers={tiers} />
