@@ -2,6 +2,7 @@ import type { AssetProfile, MetricKey, Portfolio, SaveResult, SavedPortfolioReco
 import { DD_TRIGGER, SAFE_DEDUPE_DISTANCE, TOP_N_MAX } from '@/constants/portfolio';
 import { ALPHA_PROFILE } from '@/constants/assets';
 import type { SplitMode } from '@/constants/editor';
+import { tt } from '@/i18n';
 import {
   allocateWeightsForNewSubnets,
   normalizeToOne,
@@ -93,7 +94,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
 
   const requirePortfolio = (): Portfolio => {
     const p = state.current.portfolio;
-    if (!p) throw new Error('Chưa có danh mục nào. Gọi generate_portfolio trước.');
+    if (!p) throw new Error(tt('agentTools.noPortfolio'));
     return p;
   };
 
@@ -133,9 +134,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
       }) => {
         const { allData: data } = state.current;
         if (!data.length) {
-          throw new Error(
-            isAlpha ? 'Chưa có dữ liệu. Gọi load_subnet_data trước.' : 'Chưa có dữ liệu cổ phiếu. Gọi reload_stock_data trước.'
-          );
+          throw new Error(isAlpha ? tt('agentTools.noAlphaData') : tt('agentTools.noStockData'));
         }
 
         const rawGroups: AgentSelection[] =
@@ -144,7 +143,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
             : [group1, group2].filter((g): g is AgentSelection => Boolean(g));
 
         if (!rawGroups.length) {
-          throw new Error('Cần groups[] (hoặc group1/group2) với ít nhất 1 nhóm.');
+          throw new Error(tt('agentTools.needGroups'));
         }
 
         const parsed: { keys: MetricKey[]; count: number }[] = [];
@@ -153,19 +152,21 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
           const label = `groups[${i}]`;
           const g = rawGroups[i];
           const keys = agentKeys(g);
-          if (!keys.length) throw new Error(`${label} cần metric hoặc metrics[] không rỗng.`);
+          if (!keys.length) throw new Error(tt('agentTools.groupNeedMetric', { label }));
           for (const m of keys) {
             if (!METRIC_KEYS.includes(m)) {
-              throw new Error(`${label}: "${m}" phải là một trong: ${METRIC_KEYS.join(', ')}`);
+              throw new Error(
+                tt('agentTools.groupBadMetric', { label, metric: m, list: METRIC_KEYS.join(', ') })
+              );
             }
             if (seen.has(m)) {
-              throw new Error(`Chỉ số "${m}" bị trùng giữa các nhóm.`);
+              throw new Error(tt('agentTools.metricDupGroups', { metric: m }));
             }
             seen.add(m);
           }
           const count = Math.floor(Number(g.count));
           if (!Number.isFinite(count) || count < 1) {
-            throw new Error(`${label}.count phải là số nguyên ≥ 1.`);
+            throw new Error(tt('agentTools.groupBadCount', { label }));
           }
           parsed.push({ keys, count: Math.min(count, TOP_N_MAX) });
         }
@@ -176,11 +177,12 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
           n: count,
         }));
         const next = state.current.generate(selections);
-        if (!next) throw new Error('Không dựng được danh mục từ tiêu chí này.');
+        if (!next) throw new Error(tt('agentTools.generateFailed'));
         return report(next, {
-          log: `Dựng danh mục (${parsed.length} nhóm): ${parsed
-            .map((p) => `top ${p.count} [${p.keys.join(', ')}]`)
-            .join(' + ')}`,
+          log: tt('agentTools.generateLog', {
+            count: parsed.length,
+            detail: parsed.map((p) => `top ${p.count} [${p.keys.join(', ')}]`).join(' + '),
+          }),
         });
       },
     },
@@ -192,7 +194,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
       ),
       annotations: { readOnlyHint: true },
       inputSchema: { type: 'object', properties: {} },
-      execute: async () => report(requirePortfolio(), { log: 'Đọc danh mục hiện tại' }),
+      execute: async () => report(requirePortfolio(), { log: tt('agentTools.readPortfolio') }),
     },
 
     {
@@ -216,14 +218,14 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
       execute: async (args: AgentIdArgs & { weight: number }) => {
         const netuid = args.netuid ?? args.ticker;
         const { weight } = args;
-        if (netuid == null || String(netuid) === '') throw new Error(`Cần ${idKey}.`);
+        if (netuid == null || String(netuid) === '') throw new Error(tt('agentTools.needId', { idKey }));
         const current = requirePortfolio();
         const key = String(netuid);
         const base = stripAssetClass(current);
         if (!(key in base)) {
-          throw new Error(L(`Subnet ${netuid} không có trong danh mục. Dùng add_subnets để thêm.`));
+          throw new Error(L(tt('agentTools.notInPortfolio', { id: String(netuid) })));
         }
-        if (weight >= 1) throw new Error(L('weight phải nhỏ hơn 1 để còn chỗ cho subnet khác.'));
+        if (weight >= 1) throw new Error(L(tt('agentTools.weightTooHigh')));
 
         const others = Object.entries(base).filter(([k]) => k !== key);
         const othersSum = others.reduce((a, [, v]) => a + v, 0);
@@ -237,7 +239,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
         const applied = withAssetClass(normalizeToOne(next), profile.assetClass);
         state.current.applyPortfolio(applied);
         return report(applied, {
-          log: L(`Đặt subnet ${netuid} = ${(weight * 100).toFixed(2)}%`),
+          log: L(tt('agentTools.setWeight', { id: String(netuid), pct: (weight * 100).toFixed(2) })),
         });
       },
     },
@@ -268,15 +270,17 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
       execute: async (args: AgentIdArgs & { receivers?: Array<number | string> }) => {
         const netuids = args.netuids ?? args.tickers;
         const { receivers } = args;
-        if (!Array.isArray(netuids) || !netuids.length) throw new Error(`Cần ${idsKey}[] không rỗng.`);
+        if (!Array.isArray(netuids) || !netuids.length) {
+          throw new Error(tt('agentTools.needIds', { idsKey }));
+        }
         const current = requirePortfolio();
         const base = stripAssetClass(current);
         const missing = netuids.filter((id) => !(String(id) in base));
         if (missing.length) {
-          throw new Error(L(`Subnet không có trong danh mục: ${missing.join(', ')}`));
+          throw new Error(L(tt('agentTools.missingInPortfolio', { ids: missing.join(', ') })));
         }
         if (netuids.length >= Object.keys(base).length) {
-          throw new Error(L('Không thể bỏ toàn bộ subnet trong danh mục.'));
+          throw new Error(L(tt('agentTools.cannotRemoveAll')));
         }
         const { weights } = redistributeRemovedWeights(
           base,
@@ -285,7 +289,9 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
         );
         const applied = withAssetClass(normalizeToOne(weights), profile.assetClass);
         state.current.applyPortfolio(applied);
-        return report(applied, { log: L(`Bỏ ${netuids.length} subnet: ${netuids.join(', ')}`) });
+        return report(applied, {
+          log: L(tt('agentTools.removeLog', { count: netuids.length, ids: netuids.join(', ') })),
+        });
       },
     },
 
@@ -326,21 +332,19 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
       ) => {
         const netuids = args.netuids ?? args.tickers;
         const { top_n = 10, take_ratio = 0.1, mode = 'decreasing' } = args;
-        if (!Array.isArray(netuids) || !netuids.length) throw new Error(`Cần ${idsKey}[] không rỗng.`);
+        if (!Array.isArray(netuids) || !netuids.length) {
+          throw new Error(tt('agentTools.needIds', { idsKey }));
+        }
         const current = requirePortfolio();
         const { allData: data } = state.current;
         const known = new Set(data.map((r) => String(r.netuid)));
         const unknown = netuids.filter((id) => !known.has(String(id)));
         if (unknown.length) {
-          throw new Error(
-            L(
-              `Subnet chưa có trong dữ liệu đã nạp: ${unknown.join(', ')}. Nạp dữ liệu chứa các subnet này trước, nếu không sẽ thiếu giá mua vào khi lưu.`
-            )
-          );
+          throw new Error(L(tt('agentTools.unknownInData', { ids: unknown.join(', ') })));
         }
         const base = stripAssetClass(current);
         const fresh = netuids.filter((id) => !(String(id) in base));
-        if (!fresh.length) throw new Error(L('Tất cả subnet này đã có trong danh mục.'));
+        if (!fresh.length) throw new Error(L(tt('agentTools.alreadyInPortfolio')));
 
         const { weights } = allocateWeightsForNewSubnets(base, fresh.map(String), {
           topN: top_n,
@@ -349,7 +353,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
         });
         const applied = withAssetClass(normalizeToOne(weights), profile.assetClass);
         state.current.applyPortfolio(applied);
-        return report(applied, { log: L(`Thêm subnet: ${fresh.join(', ')}`) });
+        return report(applied, { log: L(tt('agentTools.addLog', { ids: fresh.join(', ') })) });
       },
     },
 
@@ -376,16 +380,14 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
           return report(result.portfolio, {
             escaped: false,
             achieved_distance: result.minDist,
-            hint: L(
-              'Không đạt được khoảng cách yêu cầu chỉ bằng cách đổi tỷ trọng. Danh mục có thể có quá ít subnet — thêm subnet bằng add_subnets rồi thử lại.'
-            ),
-            log: `Xáo tỷ trọng nhưng chưa thoát dedupe (đạt ${result.minDist})`,
+            hint: L(tt('agentTools.escapeFailHint')),
+            log: tt('agentTools.escapeFailLog', { dist: String(result.minDist) }),
           });
         }
         return report(result.portfolio, {
           escaped: true,
           achieved_distance: result.minDist,
-          log: `Thoát dedupe: khoảng cách đạt ${result.minDist}`,
+          log: tt('agentTools.escapeOkLog', { dist: String(result.minDist) }),
         });
       },
     },
@@ -409,7 +411,7 @@ export function usePortfolioTools(deps: PortfolioToolsDeps): void {
           saved: true,
           name: result.name,
           total_saved: result.total,
-          log: `Lưu danh mục "${result.name}"`,
+          log: tt('agentTools.saveLog', { name: result.name }),
         };
       },
     },

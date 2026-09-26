@@ -1,5 +1,6 @@
 import { DD_TRIGGER } from '@/constants/portfolio';
 import { cn } from '@/utils/classNames';
+import { useLocale } from '@/i18n';
 import { IconButton } from '@/components/ui';
 import { ArrowLeftRightIcon, XIcon } from '@/components/icons';
 
@@ -27,6 +28,7 @@ export interface DedupeReportPanelProps {
 
 /** Bảng kết quả so khoảng cách dedupe giữa mọi cặp danh mục đã lưu. */
 export function DedupeReportPanel({ report, onClose }: DedupeReportPanelProps) {
+  const { t } = useLocale();
   const hasConflicts = report.conflicts.length > 0;
   return (
     <div className="shrink-0 px-5 pb-3">
@@ -39,21 +41,23 @@ export function DedupeReportPanel({ report, onClose }: DedupeReportPanelProps) {
         <div className="flex items-center justify-between gap-3">
           <div className={cn('font-bold', hasConflicts ? 'text-negative' : 'text-positive')}>
             {hasConflicts
-              ? `⚠ ${report.conflicts.length} cặp trùng lặp (d < ${DD_TRIGGER}) → sẽ bị dedupe`
-              : `✓ Không có cặp nào trùng lặp — tất cả ${report.count} danh mục an toàn với nhau`}
+              ? t('saved.dedupeConflicts', { count: report.conflicts.length, threshold: DD_TRIGGER })
+              : t('saved.dedupeSafe', { count: report.count })}
           </div>
-          <IconButton label="Đóng" onClick={onClose} className="shrink-0">
+          <IconButton label={t('common.close')} onClick={onClose} className="shrink-0">
             <XIcon size={14} />
           </IconButton>
         </div>
         <div className="mt-1 text-fg-muted">
-          Đã so {report.pairs} cặp.
+          {t('saved.compared', { pairs: report.pairs })}
           {report.minPair && (
             <>
               {' '}
-              Khoảng cách nhỏ nhất: <span className="font-bold tabular-nums text-fg">{report.minPair.dist}</span> (giữa{' '}
-              <span className="text-fg">{report.minPair.ni}</span> ↔ <span className="text-fg">{report.minPair.nj}</span>
-              ).
+              {t('saved.minDist', {
+                dist: report.minPair.dist,
+                a: report.minPair.ni,
+                b: report.minPair.nj,
+              })}
             </>
           )}
         </div>
@@ -68,8 +72,7 @@ export function DedupeReportPanel({ report, onClose }: DedupeReportPanelProps) {
               </div>
             ))}
             <div className="mt-1 text-fg-muted">
-              Danh mục nộp <b>sau</b> trong mỗi cặp sẽ bị phạt điểm. Hãy đổi tỷ trọng / thêm-bớt subnet (hoặc bấm ⟳
-              REBALANCE) để tách khoảng cách ≥ {DD_TRIGGER}.
+              {t('saved.dedupeAdvice', { threshold: DD_TRIGGER })}
             </div>
           </div>
         )}

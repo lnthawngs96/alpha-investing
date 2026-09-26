@@ -20,15 +20,15 @@ export const FEAR_GREED_NEUTRAL_MAX = 54;
 export const TOP_N_MAX = 100;
 export const TOP_N_DEFAULT = 100;
 
-/** Các tiêu chí có thể chọn trong dropdown nhóm generate. */
+/** Các tiêu chí có thể chọn trong dropdown nhóm generate (fallback EN; UI dùng localizedMetricLabel). */
 export const CHANGE_OPTIONS: readonly MetricOption[] = [
-  { value: 'price_change_1_hour', label: 'Tăng trưởng 1 giờ' },
-  { value: 'price_change_1_day', label: 'Tăng trưởng 1 ngày' },
-  { value: 'price_change_1_week', label: 'Tăng trưởng 1 tuần' },
-  { value: 'price_change_1_month', label: 'Tăng trưởng 1 tháng' },
-  { value: PRICE_FIELD, label: 'Giá (cao → thấp)' },
-  { value: EMISSION_FIELD, label: 'Emission (cao → thấp)' },
-  { value: LIQUIDITY_FIELD, label: 'Thanh khoản (cao → thấp)' },
+  { value: 'price_change_1_hour', label: '1h price change' },
+  { value: 'price_change_1_day', label: '1d price change' },
+  { value: 'price_change_1_week', label: '1w price change' },
+  { value: 'price_change_1_month', label: '1m price change' },
+  { value: PRICE_FIELD, label: 'Price (high → low)' },
+  { value: EMISSION_FIELD, label: 'Emission (high → low)' },
+  { value: LIQUIDITY_FIELD, label: 'Liquidity (high → low)' },
   { value: 'fear_and_greed_fear', label: 'Fear (Fear & Greed)' },
   { value: 'fear_and_greed_neutral', label: 'Neutral (Fear & Greed)' },
 ];
@@ -45,7 +45,7 @@ export const FILTER_OPTIONS: readonly MetricOption[] = [
 
 /** Nhãn cho nhóm subnet không thuộc nhóm generate nào. */
 export const OTHER_GROUP_KEY = 'other';
-export const OTHER_GROUP_LABEL = 'Khác / chưa phân nhóm';
+export const OTHER_GROUP_LABEL = 'Other / ungrouped';
 
 // ============================================================================
 // Rule phân bổ Tao/Alpha — Bittensor Subnet 88 (Investing)

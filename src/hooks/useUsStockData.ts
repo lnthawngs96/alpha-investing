@@ -10,9 +10,8 @@ import {
 export type StockLoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
- * Bảng cổ phiếu Mỹ: tự tải từ api.investing88.ai/assets khi mở app (không cần
- * dán tay), tải lại theo yêu cầu. Cash ETFs trong cùng trang được loại khỏi
- * bảng — giống dereg list bên alpha (chỉ đọc từ API, không sửa tay).
+ * Bảng cổ phiếu Mỹ: tự tải khi mở app (không cần dán tay), tải lại theo yêu cầu.
+ * Cash ETFs được loại khỏi bảng — giống dereg list bên alpha (chỉ đọc, không sửa tay).
  */
 export function useUsStockData() {
   const [rawRows, setRawRows] = useState<SubnetRow[]>([]);
@@ -20,7 +19,6 @@ export function useUsStockData() {
   // Bắt đầu ở 'loading' vì effect mount tải ngay (không setState đồng bộ trong effect).
   const [status, setStatus] = useState<StockLoadState>('loading');
   const [error, setError] = useState('');
-  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Giữ tham chiếu ổn định: PortfolioBuilder reset kết quả khi mảng dữ liệu đổi identity.
@@ -30,7 +28,6 @@ export function useUsStockData() {
   const applyResult = useCallback(({ stocks, cashEtfs }: UsStockAssets): StockReloadResult => {
     setRawRows(stocks);
     setExcluded(cashEtfs);
-    setFetchedAt(new Date());
     setError('');
     setStatus('ready');
     return {
@@ -67,7 +64,7 @@ export function useUsStockData() {
       .then(applyResult)
       .catch((err: unknown) => {
         applyError(ac, err);
-        if (!ac.signal.aborted) console.warn('Không tải được bảng cổ phiếu Mỹ từ assets:', err);
+        if (!ac.signal.aborted) console.warn('Không tải được bảng cổ phiếu Mỹ:', err);
       });
     return () => ac.abort();
   }, [applyResult, applyError]);
@@ -80,7 +77,6 @@ export function useUsStockData() {
     excluded,
     status,
     error,
-    fetchedAt,
     reload,
   };
 }

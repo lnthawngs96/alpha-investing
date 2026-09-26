@@ -5,6 +5,7 @@ import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { formatSavedAt } from '@/utils/format';
 import { portfolioEntriesDesc } from '@/utils/portfolioValidation';
 import { cn } from '@/utils/classNames';
+import { useLocale } from '@/i18n';
 import { IconButton } from '@/components/ui';
 import { CheckIcon, ChevronIcon, PencilIcon, XIcon } from '@/components/icons';
 import { SavedPortfolioDetail } from './SavedPortfolioDetail';
@@ -25,6 +26,7 @@ export interface SavedPortfolioCardProps {
  * xoá) và phần chi tiết khi mở rộng.
  */
 export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onDelete, order }: SavedPortfolioCardProps) {
+  const { t } = useLocale();
   const isExpanded = editor.expandedIdx === idx;
   const isRenaming = editor.editingIdx === idx;
   const entries = portfolioEntriesDesc(saved.portfolio); // cùng thứ tự JSON: tỷ trọng cao → thấp
@@ -51,7 +53,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
             <input
               autoFocus
               value={editor.nameDraft}
-              placeholder="Tên danh mục…"
+              placeholder={t('saved.namePlaceholder')}
               className="field w-48 border-accent px-2 py-1 font-bold"
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => editor.setNameDraft(e.target.value)}
@@ -65,7 +67,9 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
               {saved.name || formatSavedAt(saved.savedAt)}
             </span>
           )}
-          <span className="shrink-0 text-xs tabular-nums text-fg-muted">{entries.length} {tiers.unit === 'subnet' ? 'subnets' : tiers.unit}</span>
+          <span className="shrink-0 text-xs tabular-nums text-fg-muted">
+            {t('saved.countLabel', { count: entries.length, unit: tiers.unit })}
+          </span>
           {savedStats && (
             <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold">
               {TIER_ORDER.map((tier) =>
@@ -73,7 +77,13 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
                   <span
                     key={tier}
                     className={cn('rounded border px-1.5 py-0.5 tabular-nums', TIERS[tier].box)}
-                    title={`${TIERS[tier].label}: ${savedStats[tier].count} ${tiers.unit} · ${savedStats[tier].weight.toFixed(2)}% tỷ trọng — ${TIERS[tier].hint}`}
+                    title={t('saved.tierBadgeTitle', {
+                      label: TIERS[tier].label,
+                      count: savedStats[tier].count,
+                      unit: tiers.unit,
+                      weight: savedStats[tier].weight.toFixed(2),
+                      hint: TIERS[tier].hint,
+                    })}
                   >
                     {TIERS[tier].chip} {savedStats[tier].count}
                   </span>
@@ -86,7 +96,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
           {isRenaming ? (
             <>
               <IconButton
-                label="Lưu tên"
+                label={t('saved.saveName')}
                 tone="positive"
                 className="text-positive"
                 onClick={(e) => {
@@ -97,7 +107,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
                 <CheckIcon size={15} strokeWidth={2.5} />
               </IconButton>
               <IconButton
-                label="Huỷ"
+                label={t('saved.cancelRename')}
                 onClick={(e) => {
                   e.stopPropagation();
                   editor.cancelRename();
@@ -108,7 +118,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
             </>
           ) : (
             <IconButton
-              label="Đặt tên danh mục"
+              label={t('saved.rename')}
               tone="accent"
               onClick={(e) => {
                 e.stopPropagation();
@@ -119,7 +129,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
             </IconButton>
           )}
           <IconButton
-            label="Xoá danh mục"
+            label={t('saved.delete')}
             tone="negative"
             onClick={(e) => {
               e.stopPropagation();

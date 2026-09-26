@@ -9,6 +9,7 @@ import { dedupeDistance } from '@/utils/portfolioValidation';
 import { downloadPortfolios, parseImportedPortfolios, readFileAsText } from '@/utils/portfolioFile';
 import { formatSavedAt } from '@/utils/format';
 import { cn } from '@/utils/classNames';
+import { unitLabel, useLocale } from '@/i18n';
 import { Button, Card, EmptyState, Eyebrow } from '@/components/ui';
 import { BookmarkIcon, DownloadIcon, DropletIcon, ScaleIcon, UploadIcon, ZapIcon } from '@/components/icons';
 import { useAssetProfile } from '@/store/asset/context';
@@ -46,7 +47,8 @@ export function SavedPortfolios({
   onImport,
   exportList = savedList,
 }: SavedPortfoliosProps) {
-  const { tierNames: names, key: assetKey } = useAssetProfile();
+  const { key: assetKey, unit } = useAssetProfile();
+  const { t } = useLocale();
   // Kết quả xuất/nhập file.
   const [fileMsg, setFileMsg] = useState<StatusMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,10 +60,11 @@ export function SavedPortfolios({
 
   const tiers = useSubnetTiers(currentData, topEmissionN, topLiquidityN);
   const editor = useSavedPortfolioEditor({ savedList, currentData, filterKey, onUpdate, onRename });
+  const names = tiers.names;
 
   /** Tên hiển thị của một danh mục đã lưu (fallback theo thời điểm lưu). */
   function displayName(saved: SavedPortfolioRecord | undefined): string {
-    return saved?.name || (saved?.savedAt ? formatSavedAt(saved.savedAt) : 'Danh mục');
+    return saved?.name || (saved?.savedAt ? formatSavedAt(saved.savedAt) : t('saved.portfolioFallback'));
   }
 
   /**
@@ -94,9 +97,9 @@ export function SavedPortfolios({
   function handleExport() {
     try {
       const name = downloadPortfolios(exportList);
-      showFileMsg(true, `✓ Đã xuất ${exportList.length} danh mục → ${name}`);
+      showFileMsg(true, t('saved.exportOk', { count: exportList.length, name }));
     } catch {
-      showFileMsg(false, '⚠ Không xuất được file');
+      showFileMsg(false, t('saved.exportFail'));
     }
   }
 
@@ -110,7 +113,7 @@ export function SavedPortfolios({
     try {
       text = await readFileAsText(file);
     } catch {
-      showFileMsg(false, '⚠ Không đọc được file');
+      showFileMsg(false, t('saved.importReadFail'));
       return;
     }
 
@@ -121,9 +124,9 @@ export function SavedPortfolios({
     }
 
     const { added, duplicates } = onImport(records);
-    const parts = [`✓ Đã nhập ${added} danh mục mới`];
-    if (duplicates) parts.push(`${duplicates} đã có sẵn (giữ nguyên bản hiện tại)`);
-    if (skipped) parts.push(`${skipped} bản ghi hỏng bị bỏ qua`);
+    const parts = [t('saved.importOk', { added })];
+    if (duplicates) parts.push(t('saved.importDup', { count: duplicates }));
+    if (skipped) parts.push(t('saved.importSkip', { count: skipped }));
     showFileMsg(true, parts.join(' · '));
   }
 
@@ -138,18 +141,18 @@ export function SavedPortfolios({
         icon={<UploadIcon size={13} />}
         onClick={handleExport}
         disabled={!exportList.length}
-        title="Tải toàn bộ danh mục đã lưu về máy dưới dạng file JSON"
+        title={t('saved.exportTitle')}
       >
-        Xuất JSON
+        {t('saved.export')}
       </Button>
       <Button
         size="sm"
         variant="secondary"
         icon={<DownloadIcon size={13} />}
         onClick={() => fileInputRef.current?.click()}
-        title="Nhập danh mục từ file JSON đã xuất — gộp vào danh sách hiện tại, không ghi đè"
+        title={t('saved.importTitle')}
       >
-        Nhập JSON
+        {t('saved.import')}
       </Button>
     </>
   );
@@ -165,8 +168,8 @@ export function SavedPortfolios({
       <EmptyState
         className="flex-1"
         icon={<BookmarkIcon size={26} />}
-        title="Chưa có danh mục nào được lưu"
-        description="Dựng danh mục ở tab Portfolio gen rồi bấm Lưu, hoặc nhập lại từ file JSON đã xuất."
+        title={t('saved.emptyTitle')}
+        description={t('saved.emptyDesc')}
         actions={
           <>
             {fileButtons}
@@ -183,14 +186,18 @@ export function SavedPortfolios({
     <Card className="flex min-h-0 flex-1 flex-col animate-fade-in">
       {/* Toolbar */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 pb-2 pt-5">
-        <Eyebrow>Danh mục đã lưu ({savedList.length})</Eyebrow>
+        <Eyebrow>{t('saved.title', { count: savedList.length })}</Eyebrow>
         <div className="flex flex-wrap items-center gap-2">
           <div
             className="flex items-center gap-2 rounded-lg border border-line bg-surface-raised/60 px-3 py-1.5 text-xs text-fg-muted"
-            title={`Ngưỡng xếp hạng lấy từ DATA TABLE đang nạp: ${assetKey === 'alpha' ? 'subnet' : 'mã'} nằm trong top N ${names.primary} / top N ${names.secondary} mới được coi là 'top'`}
+            title={t('saved.topTitle', {
+              unit: unitLabel(unit),
+              primary: names.primary,
+              secondary: names.secondary,
+            })}
           >
             <span className="font-bold tracking-wider">TOP</span>
-            <label className="flex cursor-pointer items-center gap-1" title={`Top N theo ${names.primary}`}>
+            <label className="flex cursor-pointer items-center gap-1" title={t('saved.topPrimary', { name: names.primary })}>
               <ZapIcon size={13} className="text-warning" animated />
               <input
                 type="number"
@@ -200,7 +207,7 @@ export function SavedPortfolios({
                 className="field w-14 px-1.5 py-1 text-right font-mono focus:border-warning"
               />
             </label>
-            <label className="flex cursor-pointer items-center gap-1" title={`Top N theo ${names.secondary}`}>
+            <label className="flex cursor-pointer items-center gap-1" title={t('saved.topSecondary', { name: names.secondary })}>
               <DropletIcon size={13} className="text-info" animated />
               <input
                 type="number"
@@ -218,18 +225,20 @@ export function SavedPortfolios({
             icon={<ScaleIcon size={13} />}
             onClick={runDedupeCheck}
             disabled={savedList.length < 2}
-            title="So khoảng cách dedupe của tất cả danh mục đã lưu với nhau (ngưỡng 0.01)"
+            title={t('saved.checkDedupeTitle')}
           >
-            Kiểm tra dedupe
+            {t('saved.checkDedupe')}
           </Button>
         </div>
       </div>
       {fileBanner}
       {!tiers.canRank && (
         <div className="shrink-0 px-5 pb-3 text-xs text-warning">
-          ⚠ Chưa nạp DATA TABLE → không phân loại được top {names.primary} / top {names.secondary}.{' '}
-          {assetKey === 'alpha' ? 'Paste data ở ô DATA INPUT để' : 'Tải lại dữ liệu cổ phiếu ở ô phía trên để'}{' '}
-          bật phân loại.
+          {t('saved.noTableWarn', {
+            primary: names.primary,
+            secondary: names.secondary,
+            hint: assetKey === 'alpha' ? t('saved.noTableHintAlpha') : t('saved.noTableHintStock'),
+          })}
         </div>
       )}
       {dedupeReport && <DedupeReportPanel report={dedupeReport} onClose={() => setDedupeReport(null)} />}

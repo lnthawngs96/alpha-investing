@@ -1,6 +1,7 @@
 import type { DedupeCheck, DedupeConflict, Portfolio, PortfolioValidation, SavedPortfolioRecord, WeightMap } from '@/types';
 import { ALLOC_EPSILON, DD_TRIGGER, MAX_TOTAL_ALLOC, TAO_ALPHA_ASSET_CLASS } from '@/constants/portfolio';
 import { US_STOCK_ASSET_CLASS } from '@/constants/assets';
+import { tt } from '@/i18n';
 
 /**
  * Kiểm tra hợp lệ theo luật Tao/Alpha và cơ chế dedupe của Subnet 88.
@@ -35,7 +36,7 @@ export function portfolioEntriesDesc(portfolio: Portfolio | WeightMap | null | u
  */
 export function validateTaoAlphaPortfolio(portfolio: unknown): PortfolioValidation {
   if (!portfolio || typeof portfolio !== 'object') {
-    return { valid: false, errors: ['Danh mục không hợp lệ'], total: 0, cash: 0 };
+    return { valid: false, errors: [tt('validation.invalidPortfolio')], total: 0, cash: 0 };
   }
 
   const errors: string[] = [];
@@ -44,7 +45,7 @@ export function validateTaoAlphaPortfolio(portfolio: unknown): PortfolioValidati
   // Asset class: key '_' phải bằng 0 (mặc định 0 nếu thiếu)
   const assetClass = record._ ?? TAO_ALPHA_ASSET_CLASS;
   if (assetClass !== TAO_ALPHA_ASSET_CLASS) {
-    errors.push("Asset class '_' phải bằng 0 cho Tao/Alpha");
+    errors.push(tt('validation.alphaAssetClass'));
   }
 
   const entries = Object.entries(record).filter(([k]) => k !== '_');
@@ -53,13 +54,13 @@ export function validateTaoAlphaPortfolio(portfolio: unknown): PortfolioValidati
   for (const [k, v] of entries) {
     // Key phải là số nguyên (netuid)
     if (!/^\d+$/.test(k)) {
-      errors.push(`Subnet "${k}" phải là số nguyên (netuid)`);
+      errors.push(tt('validation.subnetKey', { id: k }));
     }
     if (typeof v !== 'number' || Number.isNaN(v)) {
-      errors.push(`Phân bổ subnet ${k} không hợp lệ`);
+      errors.push(tt('validation.subnetAlloc', { id: k }));
     } else if (v < 0) {
       // Tao/Alpha không hỗ trợ shorting → value âm bị loại
-      errors.push(`Subnet ${k}: Tao/Alpha không hỗ trợ shorting (không được âm)`);
+      errors.push(tt('validation.noShort', { id: k }));
     } else {
       total += Math.abs(v);
     }
@@ -67,7 +68,7 @@ export function validateTaoAlphaPortfolio(portfolio: unknown): PortfolioValidati
 
   // Tổng |phân bổ| ≤ 1
   if (total > MAX_TOTAL_ALLOC + ALLOC_EPSILON) {
-    errors.push(`Tổng phân bổ ${total.toFixed(6)} vượt quá 1.0`);
+    errors.push(tt('validation.totalExceeds', { total: total.toFixed(6) }));
   }
 
   const cash = Math.max(0, +(MAX_TOTAL_ALLOC - total).toFixed(6));
@@ -82,27 +83,27 @@ export function validateTaoAlphaPortfolio(portfolio: unknown): PortfolioValidati
  */
 export function validateUsStockPortfolio(portfolio: unknown): PortfolioValidation {
   if (!portfolio || typeof portfolio !== 'object') {
-    return { valid: false, errors: ['Danh mục không hợp lệ'], total: 0, cash: 0 };
+    return { valid: false, errors: [tt('validation.invalidPortfolio')], total: 0, cash: 0 };
   }
 
   const errors: string[] = [];
   const record = portfolio as Record<string, unknown>;
   if (record._ !== US_STOCK_ASSET_CLASS) {
-    errors.push(`Asset class '_' phải bằng ${US_STOCK_ASSET_CLASS} cho cổ phiếu Mỹ`);
+    errors.push(tt('validation.stockAssetClass', { n: US_STOCK_ASSET_CLASS }));
   }
 
   let total = 0;
   for (const [k, v] of Object.entries(record)) {
     if (k === '_') continue;
     if (typeof v !== 'number' || Number.isNaN(v)) {
-      errors.push(`Phân bổ mã ${k || '(rỗng)'} không hợp lệ`);
+      errors.push(tt('validation.tickerAlloc', { id: k || tt('validation.emptyTicker') }));
     } else {
       total += Math.abs(v);
     }
   }
 
   if (total > MAX_TOTAL_ALLOC + ALLOC_EPSILON) {
-    errors.push(`Tổng |phân bổ| ${total.toFixed(6)} vượt quá 1.0`);
+    errors.push(tt('validation.absTotalExceeds', { total: total.toFixed(6) }));
   }
 
   const cash = Math.max(0, +(MAX_TOTAL_ALLOC - total).toFixed(6));

@@ -1,6 +1,7 @@
 import type { GroupKey, MetricKey, SavedPortfolioRecord, Selection, SelectionGroup, SubnetRow } from '@/types';
-import { CHANGE_OPTIONS, OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
+import { CHANGE_OPTIONS, OTHER_GROUP_KEY } from '@/constants/portfolio';
 import { STOCK_CHANGE_OPTIONS } from '@/constants/assets';
+import { localizedMetricLabel, localizedMetricsLabel, tt } from '@/i18n';
 import { compareByMetricDesc, getMetricValue, getSubnetPool } from './subnetData';
 
 /**
@@ -25,9 +26,11 @@ export function primaryChangeKey(selection: Pick<Selection, 'changeKey' | 'chang
   return selectionKeys(selection)[0] || OTHER_GROUP_KEY;
 }
 
-/** Label một chỉ số; fallback về chính key nếu không tìm thấy. */
+/** Label một chỉ số theo locale hiện tại; fallback về chính key nếu không tìm thấy. */
 export function metricLabel(changeKey: string): string {
-  if (changeKey === OTHER_GROUP_KEY) return OTHER_GROUP_LABEL;
+  if (changeKey === OTHER_GROUP_KEY) return tt('portfolio.otherGroup');
+  const localized = localizedMetricLabel(changeKey);
+  if (localized !== changeKey) return localized;
   return (
     CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label ||
     STOCK_CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label ||
@@ -37,20 +40,22 @@ export function metricLabel(changeKey: string): string {
 
 /** Label gộp nhiều chỉ số: "A + B + C". */
 export function metricsLabel(keys: readonly string[]): string {
-  if (!keys.length) return 'Nhóm';
-  return keys.map(metricLabel).join(' + ');
+  return localizedMetricsLabel(keys);
 }
 
-/** Label hiển thị cho một nhóm generate. */
+/**
+ * Label hiển thị cho một nhóm generate.
+ * Ưu tiên dịch lại từ keys (bỏ qua label đã persist) để đổi ngôn ngữ vẫn đúng.
+ */
 export function groupLabel(selectionOrKey: GroupKey | Pick<Selection, 'changeKey' | 'changeKeys'>, fallback?: string): string {
-  if (fallback) return fallback;
   if (typeof selectionOrKey === 'string') {
-    if (selectionOrKey === OTHER_GROUP_KEY) return OTHER_GROUP_LABEL;
+    if (selectionOrKey === OTHER_GROUP_KEY) return tt('portfolio.otherGroup');
     return metricLabel(selectionOrKey);
   }
   const keys = selectionKeys(selectionOrKey);
-  if (keys.length === 1 && keys[0] === OTHER_GROUP_KEY) return OTHER_GROUP_LABEL;
-  return metricsLabel(keys);
+  if (keys.length === 1 && keys[0] === OTHER_GROUP_KEY) return tt('portfolio.otherGroup');
+  if (keys.length) return metricsLabel(keys);
+  return fallback || tt('portfolio.groupFallback');
 }
 
 export interface MixedSelectionResult {
@@ -140,7 +145,7 @@ function otherGroup(netuids: string[]): SelectionGroup {
     changeKeys: [OTHER_GROUP_KEY],
     n: netuids.length,
     netuids,
-    label: OTHER_GROUP_LABEL,
+    label: tt('portfolio.otherGroup'),
   };
 }
 

@@ -1,4 +1,5 @@
 import type { Portfolio } from '@/types';
+import { tt } from '@/i18n';
 import { portfolioEntriesDesc } from './portfolioValidation';
 
 /**
@@ -36,11 +37,11 @@ export function parseRelaxedPortfolioJson(text: string): ParsedPortfolioJson {
     try {
       parsed = JSON.parse(text.replace(/'/g, '"').replace(/(\d+)\s*:/g, '"$1":'));
     } catch {
-      return { ok: false, error: 'JSON sai cú pháp' };
+      return { ok: false, error: tt('file.badSyntax') };
     }
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: 'JSON phải là một object' };
+    return { ok: false, error: tt('file.mustBeObject') };
   }
 
   const record = parsed as Record<string, unknown>;

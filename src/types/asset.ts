@@ -55,8 +55,6 @@ export interface AssetProfile {
   defaultGroups: readonly DefaultGroup[];
   /** Cột mặc định để sắp xếp bảng dữ liệu (giảm dần). */
   defaultSortKey: string;
-  /** Nhãn hiển thị của một số cột trong bảng dữ liệu. */
-  columnLabels: Readonly<Record<string, string>>;
   /** Hai field dùng để phân loại tier: primary (⚡) và secondary (💧). */
   tierFields: { primary: MetricKey; secondary: MetricKey };
   /** Tên hai field phân loại (vd "emission", "thanh khoản"). */

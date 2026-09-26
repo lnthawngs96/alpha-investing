@@ -1,4 +1,5 @@
 import type { Portfolio, SavedPortfolioRecord } from '@/types';
+import { tt } from '@/i18n';
 
 /**
  * Xuất / nhập danh mục ra file JSON — tầng sao lưu duy nhất sống sót khi
@@ -110,9 +111,7 @@ export function parseImportedPortfolios(text: string): ImportParseResult {
       head.startsWith('//') || head.startsWith('(') || /localStorage\s*\.\s*setItem/.test(text);
     return {
       records: [],
-      error: looksLikeScript
-        ? 'Đây là file JavaScript (loại dán vào DevTools Console), không phải JSON. Hãy chọn file .json'
-        : 'File không phải JSON hợp lệ',
+      error: looksLikeScript ? tt('file.jsNotJson') : tt('file.invalidJson'),
       skipped: 0,
     };
   }
@@ -127,18 +126,18 @@ export function parseImportedPortfolios(text: string): ImportParseResult {
   if (!list) {
     return {
       records: [],
-      error: 'Không tìm thấy danh mục trong file (cần mảng hoặc field "portfolios")',
+      error: tt('file.noPortfolios'),
       skipped: 0,
     };
   }
   const kind = (payload as Partial<ExportPayload>)?.kind;
   if (kind && kind !== EXPORT_KIND) {
-    return { records: [], error: `File thuộc loại khác: "${kind}"`, skipped: 0 };
+    return { records: [], error: tt('file.wrongKind', { kind }), skipped: 0 };
   }
 
   const records = list.map(normalizeRecord).filter((r): r is SavedPortfolioRecord => r !== null);
   if (!records.length) {
-    return { records: [], error: 'Không có danh mục nào hợp lệ trong file', skipped: list.length };
+    return { records: [], error: tt('file.noneValid'), skipped: list.length };
   }
   return { records, error: null, skipped: list.length - records.length };
 }
@@ -148,7 +147,7 @@ export function readFileAsText(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error || new Error('Không đọc được file'));
+    reader.onerror = () => reject(reader.error || new Error(tt('file.readFail')));
     reader.readAsText(file);
   });
 }

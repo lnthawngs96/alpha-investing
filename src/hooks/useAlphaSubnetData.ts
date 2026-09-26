@@ -13,15 +13,14 @@ export interface AlphaReloadResult {
 }
 
 /**
- * Bảng Alpha: tự tải subnet từ TaoMarketCap + dereg từ investing88 assets
- * khi mở app (không cần dán JSON). Tải lại theo nút / tool; vẫn nhận nạp tay.
+ * Bảng Alpha: tự tải subnet + dereg khi mở app (không cần dán JSON).
+ * Tải lại theo nút / tool; vẫn nhận nạp tay.
  */
 export function useAlphaSubnetData() {
   const [rawRows, setRawRows] = useState<SubnetRow[]>([]);
   const [deregIds, setDeregIds] = useState<number[]>([]);
   const [status, setStatus] = useState<AlphaLoadState>('loading');
   const [error, setError] = useState('');
-  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const deregRef = useRef<number[]>([]);
 
@@ -31,7 +30,6 @@ export function useAlphaSubnetData() {
     setRawRows(stocks);
     setDeregIds(dereg);
     deregRef.current = dereg;
-    setFetchedAt(new Date());
     setError('');
     setStatus('ready');
     return {
@@ -65,7 +63,7 @@ export function useAlphaSubnetData() {
             ? deregRef.current
             : [];
       if (deregSettled.status === 'rejected' && !ac.signal.aborted) {
-        console.warn('Không tải được dereg list từ assets:', deregSettled.reason);
+        console.warn('Không tải được dereg list:', deregSettled.reason);
       }
       return applyLoaded(subnetsSettled.value, dereg);
     },
@@ -79,7 +77,7 @@ export function useAlphaSubnetData() {
     return load(ac);
   }, [load]);
 
-  /** Nạp tay / sample / tool WebMCP — giữ dereg API nếu không truyền. */
+  /** Nạp tay / tool WebMCP — giữ dereg API nếu không truyền. */
   const applyManual = useCallback((data: SubnetRow[], nextDereg?: number[]) => {
     const dereg = nextDereg ?? deregRef.current;
     setRawRows(data);
@@ -87,21 +85,13 @@ export function useAlphaSubnetData() {
     deregRef.current = dereg;
     setError('');
     setStatus('ready');
-    setFetchedAt(new Date());
-  }, []);
-
-  const clear = useCallback(() => {
-    setRawRows([]);
-    setError('');
-    setStatus('idle');
-    setFetchedAt(null);
   }, []);
 
   useEffect(() => {
     const ac = new AbortController();
     abortRef.current = ac;
     load(ac).catch((err: unknown) => {
-      if (!ac.signal.aborted) console.warn('Không tải được bảng Alpha từ TaoMarketCap:', err);
+      if (!ac.signal.aborted) console.warn('Không tải được bảng Alpha:', err);
     });
     return () => ac.abort();
   }, [load]);
@@ -112,10 +102,8 @@ export function useAlphaSubnetData() {
     deregIds,
     status,
     error,
-    fetchedAt,
     reload,
     applyManual,
-    clear,
   };
 }
 

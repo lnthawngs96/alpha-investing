@@ -31,6 +31,7 @@ import { compareByMetricDesc, findSubnet, getSubnetPool } from '@/utils/subnetDa
 import { toNumber } from '@/utils/numeric';
 import { usePortfolioTools } from '@/webmcp/usePortfolioTools';
 import { useAssetProfile } from '@/store/asset/context';
+import { tt, unitLabel, useLocale, weightLabel } from '@/i18n';
 import { Badge, Button, Card, EmptyState, Eyebrow, Notice } from '@/components/ui';
 import { PlusIcon, RefreshIcon, TargetIcon } from '@/components/icons';
 import { SelectionGroupFields } from './SelectionGroupFields';
@@ -82,7 +83,9 @@ function firstUnusedMetric(used: ReadonlySet<MetricKey>, options: readonly Metri
  */
 export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, toolsEnabled = true }: PortfolioBuilderProps) {
   const profile = useAssetProfile();
+  const { t, locale } = useLocale();
   const { metricOptions, weightField, unit } = profile;
+  const unitText = unitLabel(unit);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState<GroupDraft[]>(() => defaultDrafts(profile));
@@ -208,11 +211,11 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
   }
 
   function saveWithName(name?: string): SaveResult {
-    if (!portfolio) return { ok: false, message: 'Chưa có danh mục để lưu.' };
+    if (!portfolio) return { ok: false, message: tt('portfolio.noPortfolio') };
 
     const { valid, errors } = validatePortfolio(portfolio);
     if (!valid) {
-      return { ok: false, message: `Danh mục không hợp lệ: ${errors[0]}` };
+      return { ok: false, message: tt('portfolio.invalidPortfolio', { error: errors[0] }) };
     }
 
     const dup = checkDedupe(portfolio, savedPortfolios);
@@ -220,7 +223,11 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
       const c = dup.conflicts[0];
       return {
         ok: false,
-        message: `Trùng lặp với "${c.name || 'danh mục đã lưu'}" (d=${c.dist} < ${DD_TRIGGER}) → sẽ bị dedupe. Chưa lưu.`,
+        message: tt('portfolio.dedupeBlocked', {
+          name: c.name || tt('portfolio.unnamedSaved'),
+          dist: c.dist,
+          threshold: DD_TRIGGER,
+        }),
       };
     }
 
@@ -231,7 +238,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
       if (subnet) {
         const p = toNumber(subnet.price);
         if (!isNaN(p)) prices[netuid] = p;
-        names[netuid] = subnet.name || 'Unknown';
+        names[netuid] = subnet.name || tt('common.unknown');
       }
     });
 
@@ -254,12 +261,12 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
     if (name && String(name).trim()) record.name = String(name).trim();
 
     onSavePortfolio(record);
-    return { ok: true, name: record.name || '(chưa đặt tên)', total: savedPortfolios.length + 1 };
+    return { ok: true, name: record.name || tt('portfolio.unnamed'), total: savedPortfolios.length + 1 };
   }
 
   function handleSave() {
     const result = saveWithName();
-    setSaveMsg(result.ok ? '✓ Đã lưu danh mục!' : `✕ ${result.message}`);
+    setSaveMsg(result.ok ? tt('portfolio.savedOk') : `✕ ${result.message}`);
     setTimeout(() => setSaveMsg(''), result.ok ? TOAST_SUCCESS_MS : TOAST_ERROR_MS);
   }
 
@@ -277,6 +284,8 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
     save: saveWithName,
   });
 
+  // Phụ thuộc locale để nhãn metricsLabel đổi khi đổi ngôn ngữ.
+  void locale;
   const summaryParts = drafts.map((d) => `top ${parseCount(d.count)} ${metricsLabel(d.changeKeys)}`);
   const summaryText = summaryParts.join(' + ');
 
@@ -286,21 +295,17 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
         {/* Left panel — cấu hình */}
         <Card className="flex min-h-0 flex-col gap-4 overflow-hidden p-5 animate-slide-up">
           <div className="flex shrink-0 items-center justify-between gap-2">
-            <Eyebrow>{drafts.length} nhóm tiêu chí</Eyebrow>
+            <Eyebrow>{t('portfolio.criteriaGroups', { count: drafts.length })}</Eyebrow>
             <Button
               size="xs"
               variant="secondary"
               icon={<PlusIcon size={12} strokeWidth={2.5} />}
               onClick={addGroup}
               disabled={!canAddGroup}
-              title={
-                canAddGroup
-                  ? 'Thêm nhóm tiêu chí'
-                  : 'Hết chỉ số chưa dùng hoặc đã đạt số nhóm tối đa'
-              }
+              title={canAddGroup ? t('portfolio.addGroupTitle') : t('portfolio.addGroupDisabled')}
               className="hover:border-accent hover:text-accent"
             >
-              Thêm nhóm
+              {t('portfolio.addGroup')}
             </Button>
           </div>
 
@@ -312,7 +317,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
               return (
                 <SelectionGroupFields
                   key={draft.id}
-                  title={`Nhóm ${index + 1}`}
+                  title={t('portfolio.groupTitle', { n: index + 1 })}
                   count={draft.count}
                   onCountChange={(v) => updateDraft(draft.id, { count: v })}
                   onCountBlur={() => updateDraft(draft.id, { count: String(parseCount(draft.count)) })}
@@ -327,13 +332,17 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
           </div>
 
           <p className="shrink-0 text-[11px] leading-relaxed text-fg-faint">
-            Gộp {summaryText || '…'} (nhiều tiêu chí trong một nhóm lấy xen kẽ; loại {unit} trùng
-            {profile.key === 'alpha' ? ' và bỏ subnet 0' : ''}). Danh mục cuối sắp xếp theo {profile.weightLabel} giảm dần.
-            {profile.key === 'stock' && ' Cash ETFs đã bị loại khỏi dữ liệu.'}
+            {t('portfolio.mergeHint', {
+              summary: summaryText || '…',
+              unit: unitText,
+              alphaExtra: profile.key === 'alpha' ? t('portfolio.alphaExtra') : '',
+              weight: weightLabel(profile.key),
+              stockExtra: profile.key === 'stock' ? t('portfolio.stockExtra') : '',
+            })}
           </p>
 
           <div className="flex shrink-0 items-center justify-between">
-            <Eyebrow>Danh sách đã chọn</Eyebrow>
+            <Eyebrow>{t('portfolio.selectedList')}</Eyebrow>
             <Badge tone="positive">{topSubnets.length}</Badge>
           </div>
           {selectionGroups.length > 0 ? (
@@ -362,7 +371,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
             disabled={poolSize === 0 || drafts.length === 0}
             className="mt-auto shrink-0"
           >
-            Generate portfolio
+            {t('portfolio.generate')}
           </Button>
         </Card>
 
@@ -388,10 +397,15 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, to
             <EmptyState
               className="flex-1"
               icon={<TargetIcon size={26} />}
-              title='Chọn nhóm tiêu chí và click "Generate"'
+              title={t('portfolio.emptyTitle')}
               description={
                 <>
-                  {drafts.length} nhóm · {summaryText || '…'} từ {poolSize} {unit}
+                  {t('portfolio.emptyDesc', {
+                    groups: drafts.length,
+                    summary: summaryText || '…',
+                    pool: poolSize,
+                    unit: unitText,
+                  })}
                 </>
               }
             />

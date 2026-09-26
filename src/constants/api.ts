@@ -1,15 +1,9 @@
-/** Endpoint assets (asset ratio, dereg list, …) của Investing88. */
-export const INVESTING88_ASSETS_URL =
-  import.meta.env.VITE_ASSETS_API_URL ?? '/api/investing88/assets';
-
 /**
- * SSE bảng subnet của TaoMarketCap (event `type: "full"`).
- * Dev: Vite proxy `/api/taomarketcap`. Production (Vercel): Edge function
- * cùng path (gắn Origin bắt buộc).
+ * Endpoint JSON phía app (server đã gọi upstream + parse).
+ * Dev: Vite middleware. Prod: Vercel Edge.
  */
-export const TAOMARKETCAP_SUBNETS_STREAM_URL =
-  import.meta.env.VITE_TAOMARKETCAP_STREAM_URL ??
-  '/api/taomarketcap/internal/v1/subnets/table/stream/';
+export const ALPHA_SUBNETS_URL =
+  import.meta.env.VITE_ALPHA_SUBNETS_URL ?? '/api/alpha';
 
-/** Rao → TAO (liquidity trên stream là đơn vị chain). */
-export const RAO_PER_TAO = 1e9;
+export const MARKET_DATA_URL =
+  import.meta.env.VITE_MARKET_DATA_URL ?? '/api/market';

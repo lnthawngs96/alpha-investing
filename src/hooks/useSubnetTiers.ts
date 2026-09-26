@@ -1,6 +1,14 @@
 import { useCallback, useMemo } from 'react';
 import type { AssetProfile, SubnetRow, TierConfig } from '@/types';
-import type { TierKey } from '@/constants/tiers';
+import { TIER_ORDER, type TierKey } from '@/constants/tiers';
+import {
+  localizedTierHint,
+  localizedTierLabel,
+  tierPrimaryName,
+  tierSecondaryName,
+  unitLabel,
+  useLocale,
+} from '@/i18n';
 import { useAssetProfile } from '@/store/asset/context';
 import { buildRankIndex } from '@/utils/subnetData';
 
@@ -41,10 +49,33 @@ export interface SubnetTiers {
  */
 export function useSubnetTiers(currentData: SubnetRow[], topEmissionN: number, topLiquidityN: number): SubnetTiers {
   const profile = useAssetProfile();
+  const { locale } = useLocale();
   const { primary, secondary } = profile.tierFields;
   const emissionRanks = useMemo(() => buildRankIndex(currentData, primary), [currentData, primary]);
   const liquidityRanks = useMemo(() => buildRankIndex(currentData, secondary), [currentData, secondary]);
   const canRank = emissionRanks.size > 0 || liquidityRanks.size > 0;
+
+  const localizedConfig = useMemo(() => {
+    const next = {} as Record<TierKey, TierConfig>;
+    for (const tier of TIER_ORDER) {
+      next[tier] = {
+        ...profile.tiers[tier],
+        label: localizedTierLabel(profile.key, tier),
+        hint: localizedTierHint(profile.key, tier),
+      };
+    }
+    return next;
+  }, [profile.key, profile.tiers, locale]);
+
+  const localizedNames = useMemo(
+    () => ({
+      primary: tierPrimaryName(profile.key),
+      secondary: tierSecondaryName(profile.key),
+    }),
+    [profile.key, locale]
+  );
+
+  const localizedUnit = useMemo(() => unitLabel(profile.unit), [profile.unit, locale]);
 
   // Phân loại một subnet: thứ hạng emission / thanh khoản + nhóm.
   const classify = useCallback(
@@ -87,8 +118,8 @@ export function useSubnetTiers(currentData: SubnetRow[], topEmissionN: number, t
     topLiquidityN,
     classify,
     summarize,
-    config: profile.tiers,
-    names: profile.tierNames,
-    unit: profile.unit,
+    config: localizedConfig,
+    names: localizedNames,
+    unit: localizedUnit,
   };
 }

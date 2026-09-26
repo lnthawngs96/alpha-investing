@@ -2,6 +2,8 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import type { ThemeMode } from '@/types';
 import { ACCENT_OPTIONS, THEME_MODE_OPTIONS } from '@/constants/theme';
 import { useTheme } from '@/store/theme/context';
+import { useLocale } from '@/i18n';
+import type { MessageKey } from '@/i18n';
 import { useClickOutside } from '@/hooks/useClickOutside';
 import { cn } from '@/utils/classNames';
 import { CheckIcon, MonitorIcon, MoonIcon, PaletteIcon, StarsIcon, SunIcon } from '@/components/icons';
@@ -14,12 +16,27 @@ const MODE_ICON: Record<ThemeMode, (animated: boolean) => ReactNode> = {
   system: () => <MonitorIcon size={15} />,
 };
 
+const MODE_LABEL: Record<ThemeMode, MessageKey> = {
+  light: 'theme.light',
+  dark: 'theme.dark',
+  midnight: 'theme.midnight',
+  system: 'theme.system',
+};
+
+const MODE_HINT: Record<ThemeMode, MessageKey> = {
+  light: 'theme.lightHint',
+  dark: 'theme.darkHint',
+  midnight: 'theme.midnightHint',
+  system: 'theme.systemHint',
+};
+
 /**
  * Bộ chọn theme ở header: nút mở popover gồm 4 mode (sáng / tối / midnight /
  * hệ thống) và 6 accent. Thay đổi áp ngay và được lưu qua ThemeProvider.
  */
 export function ThemeSwitcher() {
   const { preference, resolvedMode, setMode, setAccent } = useTheme();
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -33,7 +50,7 @@ export function ThemeSwitcher() {
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        title="Giao diện & màu sắc"
+        title={t('theme.title')}
         onClick={() => setOpen((o) => !o)}
         className={cn(
           'group flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs text-fg-muted',
@@ -53,10 +70,10 @@ export function ThemeSwitcher() {
       {open && (
         <div
           role="dialog"
-          aria-label="Chọn giao diện"
+          aria-label={t('theme.dialog')}
           className="absolute right-0 top-[calc(100%+8px)] z-40 w-64 rounded-xl border border-line bg-surface p-3 shadow-card animate-scale-in origin-top-right"
         >
-          <div className="eyebrow mb-2">Chế độ</div>
+          <div className="eyebrow mb-2">{t('theme.mode')}</div>
           <div className="grid grid-cols-2 gap-1.5">
             {THEME_MODE_OPTIONS.map((opt) => {
               const active = preference.mode === opt.value;
@@ -64,7 +81,7 @@ export function ThemeSwitcher() {
                 <button
                   key={opt.value}
                   type="button"
-                  title={opt.hint}
+                  title={t(MODE_HINT[opt.value])}
                   onClick={() => setMode(opt.value)}
                   className={cn(
                     'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition-all duration-200',
@@ -74,13 +91,13 @@ export function ThemeSwitcher() {
                   )}
                 >
                   {MODE_ICON[opt.value](active)}
-                  <span className="font-semibold">{opt.label}</span>
+                  <span className="font-semibold">{t(MODE_LABEL[opt.value])}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="eyebrow mb-2 mt-3">Màu nhấn</div>
+          <div className="eyebrow mb-2 mt-3">{t('theme.accent')}</div>
           <div className="flex items-center justify-between">
             {ACCENT_OPTIONS.map((opt) => {
               const active = preference.accent === opt.value;
@@ -89,7 +106,7 @@ export function ThemeSwitcher() {
                   key={opt.value}
                   type="button"
                   title={opt.label}
-                  aria-label={`Màu ${opt.label}`}
+                  aria-label={t('theme.accentColor', { name: opt.label })}
                   aria-pressed={active}
                   onClick={() => setAccent(opt.value)}
                   className={cn(

@@ -1,5 +1,6 @@
 import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { cn } from '@/utils/classNames';
+import { useLocale } from '@/i18n';
 import { DropletIcon, ZapIcon } from '@/components/icons';
 
 export interface TierCellProps {
@@ -12,13 +13,16 @@ export interface TierCellProps {
  * theo data table hiện tại; ngoài top thì badge đỏ kèm hạng (nếu có).
  */
 export function TierCell({ netuid, tiers }: TierCellProps) {
+  const { t } = useLocale();
   if (!tiers.canRank) return <span className="text-fg-faint">—</span>;
   const { eRank, lRank, topE, topL, tier } = tiers.classify(netuid);
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const rankOrMissing = (rank: number | null) =>
+    rank != null ? t('tiers.rank', { rank }) : t('tiers.notInTable');
   const title =
     `${tiers.config[tier].hint}\n` +
-    `${cap(tiers.names.primary)}: ${eRank != null ? `hạng #${eRank}` : 'không có trong data table'} (top ${tiers.topEmissionN})\n` +
-    `${cap(tiers.names.secondary)}: ${lRank != null ? `hạng #${lRank}` : 'không có trong data table'} (top ${tiers.topLiquidityN})`;
+    `${cap(tiers.names.primary)}: ${rankOrMissing(eRank)} (top ${tiers.topEmissionN})\n` +
+    `${cap(tiers.names.secondary)}: ${rankOrMissing(lRank)} (top ${tiers.topLiquidityN})`;
 
   if (tier === 'none') {
     return (
@@ -26,7 +30,7 @@ export function TierCell({ netuid, tiers }: TierCellProps) {
         className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold', tiers.config.none.box)}
         title={title}
       >
-        ✕ NGOÀI TOP
+        ✕ {t('tiers.outsideTop')}
         {(eRank != null || lRank != null) && (
           <span className="ml-1 inline-flex items-center gap-0.5 font-normal tabular-nums text-fg-muted">
             <ZapIcon size={10} />

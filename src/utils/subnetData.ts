@@ -6,6 +6,7 @@ import {
   FEAR_GREED_NEUTRAL_MIN,
 } from '@/constants/portfolio';
 import { EXCLUDED_SUBNET_SET } from '@/constants/excludedSubnets';
+import { tt } from '@/i18n';
 import { isPrimitive } from './format';
 import { numberOrNegInfinity, toNumber } from './numeric';
 
@@ -154,7 +155,7 @@ export function parseSubnetInput(raw: string): SubnetRow[] {
   }
   if (!Array.isArray(parsed)) parsed = [parsed];
   const list = parsed as unknown[];
-  if (!list.length || typeof list[0] !== 'object') throw new Error('Cần array of objects');
+  if (!list.length || typeof list[0] !== 'object') throw new Error(tt('fetch.needObjectArray'));
   return list as SubnetRow[];
 }
 
@@ -169,12 +170,12 @@ export function parseDeregInput(raw: string): number[] {
   try {
     parsed = JSON.parse(trimmed);
   } catch {
-    throw new Error('Dereg list cần JSON hợp lệ, ví dụ [84]');
+    throw new Error(tt('fetch.deregJson'));
   }
-  if (!Array.isArray(parsed)) throw new Error('Dereg list cần là mảng số, ví dụ [84]');
+  if (!Array.isArray(parsed)) throw new Error(tt('fetch.deregArray'));
   return parsed.map((id, i) => {
     const n = Number(id);
-    if (!Number.isFinite(n)) throw new Error(`Dereg[${i}] không phải số hợp lệ`);
+    if (!Number.isFinite(n)) throw new Error(tt('fetch.deregItem', { i }));
     return n;
   });
 }

@@ -7,6 +7,7 @@ import { Button, NumericTextInput, SignedValue } from '@/components/ui';
 import { XIcon } from '@/components/icons';
 import { formatAssetId } from '@/constants/assets';
 import { useAssetProfile } from '@/store/asset/context';
+import { unitNoun, useLocale } from '@/i18n';
 import { TierCell } from './TierBadge';
 import type { DetailSection } from './types';
 
@@ -56,7 +57,9 @@ export function PortfolioDetailTable({
   onToggleReceiver,
 }: PortfolioDetailTableProps) {
   const profile = useAssetProfile();
-  const { unit } = profile;
+  const { t } = useLocale();
+  const unit = tiers.unit;
+  const noun = unitNoun(profile.unit);
   const gridCols = isEditingWeights
     ? hasRemoved
       ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]'
@@ -66,21 +69,27 @@ export function PortfolioDetailTable({
 
   return (
     <div className={cn('grid gap-x-3 gap-y-2 text-xs', gridCols)}>
-      <div className={headerCls}>{profile.key === 'alpha' ? 'ID' : 'Ticker'}</div>
-      <div className={headerCls}>Tên</div>
-      <div className={headerCls} title={`⚡#n = hạng ${profile.tierNames.primary} · 💧#n = hạng ${profile.tierNames.secondary} trong data table hiện tại`}>
-        Nhóm
+      <div className={headerCls}>{profile.key === 'alpha' ? t('saved.colId') : t('saved.colTicker')}</div>
+      <div className={headerCls}>{t('saved.colName')}</div>
+      <div
+        className={headerCls}
+        title={t('saved.groupRankTitle', {
+          primary: tiers.names.primary,
+          secondary: tiers.names.secondary,
+        })}
+      >
+        {t('saved.colGroup')}
       </div>
-      <div className={cn(headerCls, 'text-right')}>Tỷ trọng</div>
-      <div className={cn(headerCls, 'text-right')}>Giá lưu</div>
-      <div className={cn(headerCls, 'text-right')}>Giá hiện tại</div>
-      <div className={cn(headerCls, 'text-right')}>Biến động</div>
+      <div className={cn(headerCls, 'text-right')}>{t('saved.colWeight')}</div>
+      <div className={cn(headerCls, 'text-right')}>{t('saved.colSavedPrice')}</div>
+      <div className={cn(headerCls, 'text-right')}>{t('saved.colCurrentPrice')}</div>
+      <div className={cn(headerCls, 'text-right')}>{t('saved.colChange')}</div>
       {hasRemoved && (
-        <div className={cn(headerCls, 'text-center')} title={`${unit === 'subnet' ? 'Subnet' : 'Mã'} nhận phần tỷ trọng của các ${unit} đã bỏ`}>
-          Nhận
+        <div className={cn(headerCls, 'text-center')} title={t('saved.receiveTitle', { label: noun, unit })}>
+          {t('saved.colReceive')}
         </div>
       )}
-      {isEditingWeights && <div className={cn(headerCls, 'text-center')}>Xoá</div>}
+      {isEditingWeights && <div className={cn(headerCls, 'text-center')}>{t('saved.colDelete')}</div>}
 
       {sections.map((section, sectionIdx) => (
         <Fragment key={`${section.changeKey}-${sectionIdx}`}>
@@ -98,11 +107,15 @@ export function PortfolioDetailTable({
                 size="xs"
                 variant="danger"
                 icon={<XIcon size={11} strokeWidth={2.5} />}
-                title={`Xoá cả ${section.rows.length} ${unit} trong nhóm "${section.label}" — tỷ trọng giải phóng chia cho ${unit} còn lại`}
+                title={t('saved.removeGroupTitle', {
+                  count: section.rows.length,
+                  unit,
+                  label: section.label,
+                })}
                 disabled={rowCount <= section.netuids.length}
                 onClick={() => onRemoveGroup(section.netuids)}
               >
-                Xoá cả nhóm ({section.rows.length})
+                {t('saved.removeGroupBtn', { count: section.rows.length })}
               </Button>
             )}
           </div>
@@ -114,13 +127,13 @@ export function PortfolioDetailTable({
               <Fragment key={netuid}>
                 <div className="font-mono font-bold text-accent">{formatAssetId(profile, netuid)}</div>
                 <div className="truncate text-fg">
-                  {currentSubnet?.name || saved.names?.[netuid] || 'Unknown'}
+                  {currentSubnet?.name || saved.names?.[netuid] || t('common.unknown')}
                   {isAdded && (
                     <span
                       className="shimmer ml-1.5 rounded border border-info/60 bg-info/10 px-1 py-0.5 text-[10px] font-bold text-info"
-                      title={`${unit === 'subnet' ? 'Subnet' : 'Mã'} mới thêm — tỷ trọng trích từ các ${unit} lớn nhất`}
+                      title={t('saved.newBadgeTitle', { label: noun, unit })}
                     >
-                      MỚI
+                      {t('saved.newBadge')}
                     </span>
                   )}
                 </div>
@@ -132,7 +145,11 @@ export function PortfolioDetailTable({
                     {draft.addition.taken[netuid] != null && (
                       <span
                         className="text-[10px] tabular-nums text-warning"
-                        title={`Đã trích ${addTakePct}% tỷ trọng của ${unit} này cho ${addedIds.length} ${unit} mới`}
+                        title={t('saved.takenTitle', {
+                          pct: addTakePct,
+                          unit,
+                          count: addedIds.length,
+                        })}
                       >
                         −{draft.addition.taken[netuid].toFixed(2)}
                       </span>
@@ -164,7 +181,7 @@ export function PortfolioDetailTable({
                       type="checkbox"
                       className="cursor-pointer accent-positive"
                       checked={isReceiver}
-                      title={`Nhận phần tỷ trọng của các ${unit} đã bỏ`}
+                      title={t('saved.receiveRowTitle', { unit })}
                       onChange={() => onToggleReceiver(netuid)}
                     />
                   </div>
@@ -176,10 +193,10 @@ export function PortfolioDetailTable({
                       className="text-fg-faint transition-colors hover:text-negative disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-fg-faint"
                       title={
                         rowCount <= 1
-                          ? `Danh mục phải còn ít nhất 1 ${unit}`
+                          ? t('saved.cannotRemoveLast', { unit })
                           : isAdded
-                            ? `Bỏ ${unit} vừa thêm (trả lại tỷ trọng đã trích)`
-                            : `Bỏ ${unit} khỏi danh mục`
+                            ? t('saved.undoAdded', { unit })
+                            : t('saved.removeUnit', { unit })
                       }
                       disabled={rowCount <= 1}
                       onClick={() => onRemoveSubnet(netuid)}
@@ -203,7 +220,7 @@ export function PortfolioDetailTable({
               'mt-1 border-t border-line pt-2 text-right font-bold text-fg-muted'
             )}
           >
-            Tổng nhập (sẽ chuẩn hoá về 100%)
+            {t('saved.draftSum')}
           </div>
           <div className="mt-1 border-t border-line pt-2 text-right font-bold tabular-nums text-fg">
             {draftSum.toFixed(2)}%
@@ -211,7 +228,9 @@ export function PortfolioDetailTable({
         </>
       ) : (
         <>
-          <div className="col-span-6 mt-1 border-t border-line pt-2 text-right font-bold text-fg-muted">Tổng danh mục</div>
+          <div className="col-span-6 mt-1 border-t border-line pt-2 text-right font-bold text-fg-muted">
+            {t('saved.portfolioTotal')}
+          </div>
           <div className="mt-1 border-t border-line pt-2 text-right font-bold">
             <SignedValue value={portfolioReturn} bold />
           </div>

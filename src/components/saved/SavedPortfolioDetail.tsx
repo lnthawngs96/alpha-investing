@@ -1,11 +1,12 @@
 import type { SavedPortfolioRecord, SubnetRow } from '@/types';
-import { OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
+import { OTHER_GROUP_KEY } from '@/constants/portfolio';
 import type { SavedPortfolioEditor } from '@/hooks/useSavedPortfolioEditor';
 import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { groupLabel, primaryChangeKey, resolvePortfolioGroups } from '@/utils/portfolioGroups';
 import { findSubnet } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { useAssetProfile } from '@/store/asset/context';
+import { tt, unitLabel, useLocale } from '@/i18n';
 import { TierSummaryPanel } from './TierSummaryPanel';
 import { RemovedSubnetsPanel } from './RemovedSubnetsPanel';
 import { AddSubnetsPanel } from './AddSubnetsPanel';
@@ -30,6 +31,8 @@ export interface SavedPortfolioDetailProps {
  */
 export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, editor }: SavedPortfolioDetailProps) {
   const { unit } = useAssetProfile();
+  const { locale } = useLocale();
+  void locale;
   const isEditingWeights = editor.editingWeightsIdx === idx;
   const isEditingJson = editor.editingJsonIdx === idx;
 
@@ -89,7 +92,7 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
   if (leftover.length) {
     sections.push({
       changeKey: OTHER_GROUP_KEY,
-      label: OTHER_GROUP_LABEL,
+      label: tt('portfolio.otherGroup'),
       netuids: leftover.map((r) => r.netuid),
       rows: leftover,
     });
@@ -98,7 +101,7 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
   if (!sections.length && rowsData.length) {
     sections.push({
       changeKey: OTHER_GROUP_KEY,
-      label: `Tất cả ${unit}`,
+      label: tt('portfolio.allUnits', { unit: unitLabel(unit) }),
       netuids: rowsData.map((r) => r.netuid),
       rows: rowsData,
     });
@@ -117,7 +120,7 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
   // subnet vừa bỏ, addition = phần trích từ top N cấp cho các subnet mới thêm.
   const draft = isEditingWeights ? editor.computeDraft() : null;
   const hasRemoved = isEditingWeights && editor.removedIds.length > 0;
-  const subnetName = (id: string) => findSubnet(currentData, id)?.name || saved.names?.[id] || 'Unknown';
+  const subnetName = (id: string) => findSubnet(currentData, id)?.name || saved.names?.[id] || tt('common.unknown');
 
   return (
     <div className="grid min-h-0 grid-cols-2 border-t border-line animate-fade-in">

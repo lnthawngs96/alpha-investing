@@ -1,5 +1,6 @@
 import type { Portfolio, StatusMessage } from '@/types';
 import { formatPortfolioJson } from '@/utils/portfolioJson';
+import { ruleLabel, unitLabel, useLocale } from '@/i18n';
 import { Button, Eyebrow, Notice } from '@/components/ui';
 import { CheckIcon, CodeIcon, CopyIcon, PencilIcon, RefreshIcon, XIcon } from '@/components/icons';
 import { useAssetProfile } from '@/store/asset/context';
@@ -45,11 +46,13 @@ export function PortfolioJsonPanel({
   onStartEditWeights,
   onStartEditJson,
 }: PortfolioJsonPanelProps) {
-  const { unit, ruleLabel } = useAssetProfile();
+  const profile = useAssetProfile();
+  const { t } = useLocale();
+  const unit = unitLabel(profile.unit);
   return (
     <div className="show-scrollbar flex flex-col gap-3 overflow-y-auto p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Eyebrow>JSON portfolio</Eyebrow>
+        <Eyebrow>{t('saved.jsonTitle')}</Eyebrow>
         <div className="flex flex-wrap items-center gap-2">
           {isEditingWeights ? (
             <>
@@ -58,12 +61,12 @@ export function PortfolioJsonPanel({
                 variant="success"
                 icon={<CheckIcon size={13} strokeWidth={2.5} />}
                 onClick={onApplyWeights}
-                title="Chuẩn hoá tổng về 1.0 rồi lưu danh mục"
+                title={t('saved.applyWeightsTitle')}
               >
-                Áp dụng
+                {t('common.apply')}
               </Button>
               <Button size="sm" variant="secondary" icon={<XIcon size={13} />} onClick={onCancelWeights}>
-                Hủy
+                {t('common.cancel')}
               </Button>
             </>
           ) : isEditingJson ? (
@@ -73,12 +76,12 @@ export function PortfolioJsonPanel({
                 variant="success"
                 icon={<CheckIcon size={13} strokeWidth={2.5} />}
                 onClick={onApplyJson}
-                title={`Kiểm tra hợp lệ ${ruleLabel} rồi lưu JSON`}
+                title={t('saved.applyJsonTitle', { rule: ruleLabel(profile.key) })}
               >
-                Áp dụng JSON
+                {t('saved.applyJson')}
               </Button>
               <Button size="sm" variant="secondary" icon={<XIcon size={13} />} onClick={onCancelJson}>
-                Hủy
+                {t('common.cancel')}
               </Button>
             </>
           ) : (
@@ -88,41 +91,41 @@ export function PortfolioJsonPanel({
                 variant="success"
                 icon={copied ? <CheckIcon size={13} strokeWidth={2.5} /> : <CopyIcon size={13} />}
                 onClick={onCopy}
-                title="Copy JSON danh mục hiện tại"
+                title={t('saved.copyTitle')}
               >
-                {copied ? 'Đã copy' : 'Copy JSON'}
+                {copied ? t('common.copied') : t('common.copyJson')}
               </Button>
               <Button
                 size="sm"
                 variant="accent"
                 icon={<RefreshIcon size={13} />}
                 onClick={onRebalance}
-                title="Rebalance random rồi normalize; tự tăng biên độ để khoảng cách tới danh mục khác ≥ ngưỡng dedupe"
+                title={t('saved.rebalanceTitle')}
               >
-                Rebalance
+                {t('saved.rebalance')}
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
                 icon={<PencilIcon size={13} />}
                 onClick={onStartEditWeights}
-                title={
-                  `Sửa tỷ trọng / bỏ ${unit} — chọn ${unit} nhận lại phần tỷ trọng đã bỏ (mặc định chia đều cho tất cả ${unit} còn lại).\n` +
-                  `Thêm ${unit} mới từ danh sách ${unit === 'subnet' ? 'tăng trưởng' : 'xếp hạng'} cao nhất — tỷ trọng trích từ 10% của mỗi ${unit} trong top 10 lớn nhất.`
-                }
+                title={t('saved.editWeightsTitle', {
+                  unit,
+                  source: profile.key === 'alpha' ? t('saved.growthSource') : t('saved.rankSource'),
+                })}
                 className="hover:border-accent hover:text-accent"
               >
-                Sửa / thêm {unit}
+                {t('saved.editWeights', { unit })}
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
                 icon={<CodeIcon size={13} />}
                 onClick={onStartEditJson}
-                title="Sửa trực tiếp JSON danh mục"
+                title={t('saved.editJsonTitle')}
                 className="hover:border-accent hover:text-accent"
               >
-                Sửa JSON
+                {t('saved.editJson')}
               </Button>
             </>
           )}

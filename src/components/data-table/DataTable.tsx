@@ -4,6 +4,7 @@ import { isPrimitive } from '@/utils/format';
 import { cn } from '@/utils/classNames';
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, SearchIcon } from '@/components/icons';
 import { useAssetProfile } from '@/store/asset/context';
+import { columnLabel, useLocale } from '@/i18n';
 import { CellValue } from './CellValue';
 
 export interface DataTableProps {
@@ -18,6 +19,7 @@ export interface DataTableProps {
  */
 export function DataTable({ data, columns }: DataTableProps) {
   const profile = useAssetProfile();
+  const { t } = useLocale();
   const [search, setSearch] = useState('');
   // Mặc định sắp xếp giảm dần ngay sau khi import data: alpha theo thanh khoản, cổ phiếu Mỹ theo vốn hoá.
   const [sortKey, setSortKey] = useState<string | null>(profile.defaultSortKey);
@@ -62,17 +64,17 @@ export function DataTable({ data, columns }: DataTableProps) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-xs text-fg-muted">
           <span className="tabular-nums">
-            <b className="text-fg">{filteredRows.length}</b> / {data.length} rows
+            <b className="text-fg">{filteredRows.length}</b> / {data.length} {t('table.rows')}
           </span>
           <span className="text-fg-faint">·</span>
-          <span className="tabular-nums">{columns.length} columns</span>
+          <span className="tabular-nums">{columns.length} {t('table.columns')}</span>
         </div>
         <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 transition-all duration-200 focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_15%,transparent)]">
           <SearchIcon size={14} className="text-fg-faint" />
           <input
             type="text"
             className="min-w-[240px] bg-transparent py-2 text-xs text-fg outline-none placeholder:text-fg-faint"
-            placeholder="Tìm kiếm..."
+            placeholder={t('table.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -82,9 +84,9 @@ export function DataTable({ data, columns }: DataTableProps) {
       {/* Table */}
       <div className="show-scrollbar min-h-0 flex-1 overflow-auto rounded-xl border border-line bg-surface shadow-card">
         <table className="w-full border-collapse text-xs">
-          <thead className="sticky top-0 z-10">
+          <thead>
             <tr>
-              <th className="w-14 select-none whitespace-nowrap border-b border-r border-line bg-surface-raised p-3 text-center text-[11px] font-bold tracking-wider text-fg-faint">
+              <th className="sticky top-0 z-10 w-14 select-none whitespace-nowrap border-b border-r border-line bg-surface-raised p-3 text-center text-[11px] font-bold tracking-wider text-fg-faint">
                 #
               </th>
               {columns.map((c) => {
@@ -93,17 +95,18 @@ export function DataTable({ data, columns }: DataTableProps) {
                   <th
                     key={c}
                     className={cn(
-                      'group cursor-pointer select-none whitespace-nowrap border-b border-r border-line p-3 text-left text-[11px] font-bold tracking-wider last:border-r-0',
+                      'sticky top-0 z-10 group cursor-pointer select-none whitespace-nowrap border-b border-r border-line p-3 text-left text-[11px] font-bold tracking-wider last:border-r-0',
                       'transition-colors duration-150',
+                      // Nền đặc (color-mix) — tránh bg-accent/xx trong suốt để content scroll không đè lên header.
                       isActive
-                        ? 'bg-accent/15 text-accent'
-                        : 'bg-surface-raised text-fg-muted hover:bg-accent/10 hover:text-fg'
+                        ? 'bg-[color-mix(in_oklab,var(--accent)_20%,var(--surface-raised))] text-accent'
+                        : 'bg-surface-raised text-fg-muted hover:bg-[color-mix(in_oklab,var(--accent)_12%,var(--surface-raised))] hover:text-fg'
                     )}
                     onClick={() => handleSort(c)}
                     aria-sort={isActive ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <span className="inline-flex items-center gap-1.5">
-                      {profile.columnLabels[c] ?? c}
+                      {columnLabel(c, profile.key)}
                       {isActive ? (
                         sortDir === 'asc' ? (
                           <ArrowUpIcon size={12} className="animate-scale-in" />
@@ -123,7 +126,7 @@ export function DataTable({ data, columns }: DataTableProps) {
             {filteredRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + 1} className="border-b border-line p-12 text-center text-fg-muted">
-                  Không có dữ liệu phù hợp
+                  {t('table.noMatch')}
                 </td>
               </tr>
             ) : (

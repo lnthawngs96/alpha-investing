@@ -23,17 +23,17 @@ import { STOCK_TIERS, TIERS } from './tiers';
 /** Asset class của cổ phiếu Mỹ (key '_'). */
 export const US_STOCK_ASSET_CLASS = 1;
 
-/** Cột của bảng cổ phiếu Mỹ (api.investing88.ai/assets). */
+/** Cột của bảng cổ phiếu Mỹ. */
 export const MC_FIELD: MetricKey = 'mc';
 export const PV_FIELD: MetricKey = 'pv';
 export const VOLUME_FIELD: MetricKey = 'volume';
 
-/** Tiêu chí chọn mã cổ phiếu ở tab Portfolio gen. */
+/** Tiêu chí chọn mã cổ phiếu ở tab Portfolio gen (fallback EN; UI dùng localizedMetricLabel). */
 export const STOCK_CHANGE_OPTIONS: readonly MetricOption[] = [
-  { value: MC_FIELD, label: 'Vốn hoá (cao → thấp)' },
-  { value: PV_FIELD, label: 'Giá trị giao dịch (price × volume)' },
-  { value: VOLUME_FIELD, label: 'Khối lượng giao dịch' },
-  { value: PRICE_FIELD, label: 'Giá (cao → thấp)' },
+  { value: MC_FIELD, label: 'Market cap (high → low)' },
+  { value: PV_FIELD, label: 'Trading value (price × volume)' },
+  { value: VOLUME_FIELD, label: 'Volume' },
+  { value: PRICE_FIELD, label: 'Price (high → low)' },
 ];
 
 export const ALPHA_PROFILE: AssetProfile = {
@@ -48,16 +48,15 @@ export const ALPHA_PROFILE: AssetProfile = {
   metricKeys: METRIC_KEYS,
   defaultMetric: CHANGE_DEFAULT,
   weightField: LIQUIDITY_FIELD,
-  weightLabel: 'thanh khoản',
+  weightLabel: 'liquidity',
   maxWeight: LIQUIDITY_MAX_WEIGHT,
   defaultGroups: [
     { count: DEFAULT_GROUP1_COUNT, keys: [LIQUIDITY_FIELD] },
     { count: DEFAULT_GROUP2_COUNT, keys: [CHANGE_DEFAULT] },
   ],
   defaultSortKey: LIQUIDITY_FIELD,
-  columnLabels: {},
   tierFields: { primary: EMISSION_FIELD, secondary: LIQUIDITY_FIELD },
-  tierNames: { primary: 'emission', secondary: 'thanh khoản' },
+  tierNames: { primary: 'emission', secondary: 'liquidity' },
   tiers: TIERS,
   priceDigits: 6,
 };
@@ -65,8 +64,8 @@ export const ALPHA_PROFILE: AssetProfile = {
 export const STOCK_PROFILE: AssetProfile = {
   key: 'stock',
   assetClass: US_STOCK_ASSET_CLASS,
-  label: 'Cổ phiếu Mỹ',
-  unit: 'mã',
+  label: 'US stocks',
+  unit: 'ticker',
   idField: 'ticker',
   idPrefix: '',
   ruleLabel: 'US stocks',
@@ -74,7 +73,7 @@ export const STOCK_PROFILE: AssetProfile = {
   metricKeys: STOCK_CHANGE_OPTIONS.map((o) => o.value),
   defaultMetric: MC_FIELD,
   weightField: MC_FIELD,
-  weightLabel: 'vốn hoá',
+  weightLabel: 'market cap',
   maxWeight: LIQUIDITY_MAX_WEIGHT,
   defaultGroups: [
     { count: DEFAULT_GROUP1_COUNT, keys: [MC_FIELD] },
@@ -82,9 +81,8 @@ export const STOCK_PROFILE: AssetProfile = {
   ],
   defaultSortKey: MC_FIELD,
   // Dòng cổ phiếu dùng `netuid` = ticker làm định danh chung của app.
-  columnLabels: { netuid: 'ticker' },
   tierFields: { primary: MC_FIELD, secondary: PV_FIELD },
-  tierNames: { primary: 'vốn hoá', secondary: 'giá trị giao dịch' },
+  tierNames: { primary: 'market cap', secondary: 'trading value' },
   tiers: STOCK_TIERS,
   priceDigits: 2,
 };

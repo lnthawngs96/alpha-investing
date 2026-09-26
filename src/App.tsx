@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AssetKey, Portfolio, SavedPortfolioRecord, SubnetRow, TabKey } from '@/types';
 import { DEFAULT_TAB } from '@/constants/tabs';
 import { CHANGE_DEFAULT } from '@/constants/portfolio';
@@ -11,7 +11,8 @@ import { useUsStockData } from '@/hooks/useUsStockData';
 import { useDataTools } from '@/webmcp/useDataTools';
 import { buildColumns } from '@/utils/subnetData';
 import { cn } from '@/utils/classNames';
-import { Notice } from '@/components/ui';
+import { useLocale } from '@/i18n';
+import { LoadingOverlay, Notice } from '@/components/ui';
 import { BookmarkIcon, TableIcon, TargetIcon } from '@/components/icons';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AssetSwitcher } from '@/components/layout/AssetSwitcher';
@@ -32,10 +33,20 @@ import { AgentActivityLog } from '@/components/agent/AgentActivityLog';
  * dùng context mặc định (ALPHA_PROFILE) nên chạy đúng như trước.
  */
 export default function App() {
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<TabKey>(DEFAULT_TAB);
   const [asset, setAsset] = useState<AssetKey>(DEFAULT_ASSET);
   const alpha = useAlphaSubnetData();
   const stock = useUsStockData();
+  // Overlay boot: chỉ tắt khi cả Alpha + US stock đã xong lần gọi đầu (ready hoặc error).
+  // Reload sau đó không bật lại overlay toàn trang.
+  const [bootDone, setBootDone] = useState(false);
+  useEffect(() => {
+    if (bootDone) return;
+    if (alpha.status !== 'loading' && stock.status !== 'loading') {
+      setBootDone(true);
+    }
+  }, [alpha.status, stock.status, bootDone]);
   const {
     savedPortfolios,
     restoredFromBackup,
@@ -71,11 +82,6 @@ export default function App() {
     alpha.applyManual(data, deregIds);
   }
 
-  function handleClear() {
-    alpha.clear();
-    setActiveTab(DEFAULT_TAB);
-  }
-
   // Tool cấp App. Đăng ký ở đây để chúng tồn tại bất kể tab nào đang mở —
   // agent gọi được load_subnet_data hay switch_tab ở mọi thời điểm.
   useDataTools({
@@ -88,18 +94,17 @@ export default function App() {
     activeTab,
     setActiveTab,
     onSubmitData: handleSubmit,
-    onClearData: handleClear,
     savedPortfolios,
     deleteSaved,
     renameSaved,
   });
 
   const tabs: TabItem[] = [
-    { key: 'table', label: 'Data table', icon: <TableIcon size={15} />, count: activeData.length },
-    { key: 'portfolio', label: 'Portfolio gen', icon: <TargetIcon size={15} /> },
+    { key: 'table', label: t('tabs.table'), icon: <TableIcon size={15} />, count: activeData.length },
+    { key: 'portfolio', label: t('tabs.portfolio'), icon: <TargetIcon size={15} /> },
     {
       key: 'saved',
-      label: 'Danh mục đã lưu',
+      label: t('tabs.saved'),
       icon: <BookmarkIcon size={15} />,
       count: savedView.list.length > 0 ? savedView.list.length : undefined,
     },
@@ -107,11 +112,12 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas text-fg">
+      {!bootDone && <LoadingOverlay />}
       <AppHeader />
       <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-6 py-5">
         {restoredFromBackup && (
           <Notice tone="warning" onDismiss={dismissRestoredNotice} className="shrink-0">
-            localStorage thiếu dữ liệu — đã khôi phục danh mục từ bản sao trong sessionStorage.
+            {t('notice.restored')}
           </Notice>
         )}
 

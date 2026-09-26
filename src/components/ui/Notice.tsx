@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/utils/classNames';
+import { useLocale } from '@/i18n';
 import { AlertIcon, CheckCircleIcon, InfoIcon, XCircleIcon, XIcon } from '@/components/icons';
 import { IconButton } from './IconButton';
 
@@ -34,6 +35,7 @@ const TONE_ICON: Record<NoticeTone, ReactNode> = {
  * Tự animate trượt xuống khi xuất hiện; lỗi thì lắc nhẹ để gây chú ý.
  */
 export function Notice({ tone, onDismiss, hideIcon, actions, className, children, ...rest }: NoticeProps) {
+  const { t } = useLocale();
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
@@ -50,7 +52,7 @@ export function Notice({ tone, onDismiss, hideIcon, actions, className, children
       <div className="min-w-0 flex-1">{children}</div>
       {actions}
       {onDismiss && (
-        <IconButton label="Đóng" onClick={onDismiss} className="-my-1 -mr-1 text-current opacity-70 hover:opacity-100">
+        <IconButton label={t('common.close')} onClick={onDismiss} className="-my-1 -mr-1 text-current opacity-70 hover:opacity-100">
           <XIcon size={14} />
         </IconButton>
       )}

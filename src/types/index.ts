@@ -5,3 +5,4 @@ export type * from './webmcp';
 export type * from './theme';
 export type * from './ui';
 export type * from './asset';
+export type * from './locale';

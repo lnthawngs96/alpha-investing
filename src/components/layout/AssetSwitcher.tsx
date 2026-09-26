@@ -1,5 +1,7 @@
 import type { AssetKey } from '@/types';
 import { ASSET_KEYS, ASSET_PROFILES } from '@/constants/assets';
+import { useLocale } from '@/i18n';
+import type { MessageKey } from '@/i18n';
 import { cn } from '@/utils/classNames';
 import { Badge } from '@/components/ui';
 import { CoinsIcon, LayersIcon } from '@/components/icons';
@@ -13,10 +15,17 @@ export interface AssetSwitcherProps {
 
 const ICONS: Record<AssetKey, typeof LayersIcon> = { alpha: LayersIcon, stock: CoinsIcon };
 
+const LABELS: Record<AssetKey, MessageKey> = {
+  alpha: 'asset.alpha',
+  stock: 'asset.stock',
+};
+
 /** Công tắc hai mục đầu tư của Subnet 88: Alpha (asset class 0) / Cổ phiếu Mỹ (asset class 1). */
 export function AssetSwitcher({ value, onChange, counts }: AssetSwitcherProps) {
+  const { t } = useLocale();
+
   return (
-    <div role="radiogroup" aria-label="Mục đầu tư" className="inline-flex shrink-0 self-start rounded-xl border border-line bg-surface p-1 shadow-card">
+    <div role="radiogroup" aria-label={t('asset.group')} className="inline-flex shrink-0 self-start rounded-xl border border-line bg-surface p-1 shadow-card">
       {ASSET_KEYS.map((key) => {
         const active = key === value;
         const Icon = ICONS[key];
@@ -33,7 +42,7 @@ export function AssetSwitcher({ value, onChange, counts }: AssetSwitcherProps) {
             )}
           >
             <Icon size={14} />
-            {ASSET_PROFILES[key].label}
+            {t(LABELS[key])}
             <span className="font-mono text-[10px] font-normal normal-case tracking-normal opacity-70">
               _:{ASSET_PROFILES[key].assetClass}
             </span>

@@ -8,6 +8,7 @@ import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { cn } from '@/utils/classNames';
 import { formatMetric } from '@/utils/format';
 import { ensureMetricKeys, metricsLabel } from '@/utils/portfolioGroups';
+import { localizedMetricLabel, useLocale } from '@/i18n';
 import { Button, NumericTextInput, Select } from '@/components/ui';
 import { PlusIcon } from '@/components/icons';
 import { useAssetProfile } from '@/store/asset/context';
@@ -59,7 +60,9 @@ export function AddSubnetsPanel({
   onClearCandidates,
 }: AddSubnetsPanelProps) {
   const profile = useAssetProfile();
-  const { unit } = profile;
+  const { t, locale } = useLocale();
+  void locale;
+  const unit = tiers.unit;
   const overrideCount = Object.keys(addOverrides).length;
   const visible = candidates.slice(0, candidateLimit);
   const displayKey = addChangeKeys[0];
@@ -77,39 +80,37 @@ export function AddSubnetsPanel({
     <div className="mb-3 flex flex-col gap-2 rounded-lg border border-info/60 bg-info/10 p-3 text-xs animate-slide-down">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-info">
-          <PlusIcon size={13} strokeWidth={2.5} /> Thêm {unit}{profile.key === 'alpha' ? ' tăng trưởng' : ''}
+          <PlusIcon size={13} strokeWidth={2.5} />{' '}
+          {profile.key === 'alpha' ? t('saved.addGrowth', { unit }) : t('saved.addUnit', { unit })}
         </span>
-        <label
-          className="flex items-center gap-1 text-fg"
-          title={`Mỗi ${unit} trong top lớn nhất nhả ra bấy nhiêu % TỶ TRỌNG CỦA CHÍNH NÓ (vd 10% của 4% = 0.4%)`}
-        >
-          lấy
+        <label className="flex items-center gap-1 text-fg" title={t('saved.takeTitle', { unit })}>
+          {t('saved.takeLabel')}
           <NumericTextInput
             value={addTakePct}
             onValue={(n) => onApplyDraft({ takePct: Math.min(MAX_ADD_TAKE_PCT, Math.max(0, n)) })}
             className="w-14 px-1.5 py-1 text-right focus:border-info"
           />
-          % của top
+          {t('saved.ofTop')}
           <NumericTextInput
             integer
             value={addTopN}
             onValue={(n) => onApplyDraft({ topN: Math.max(0, n) })}
             className="w-14 px-1.5 py-1 text-right focus:border-info"
           />
-          {unit} lớn nhất
+          {t('saved.largest', { unit })}
         </label>
-        <label className="flex items-center gap-1 text-fg" title={`Cách chia phần lấy được cho các ${unit} mới`}>
-          chia
+        <label className="flex items-center gap-1 text-fg" title={t('saved.splitTitle', { unit })}>
+          {t('saved.split')}
           <Select value={addSplitMode} onChange={(e) => onApplyDraft({ splitMode: e.target.value as SplitMode })}>
-            <option value="decreasing">giảm dần (cao → thấp)</option>
-            <option value="equal">đều nhau</option>
+            <option value="decreasing">{t('saved.splitDecreasing')}</option>
+            <option value="equal">{t('saved.splitEqual')}</option>
           </Select>
         </label>
       </div>
 
       <div className="rounded border border-info/40 bg-surface/40 p-2">
         <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-info">
-          Tiêu chí xếp hạng · {metricsLabel(addChangeKeys)}
+          {t('saved.rankCriteria', { label: metricsLabel(addChangeKeys) })}
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           {profile.metricOptions.map((opt) => {
@@ -128,7 +129,7 @@ export function AddSubnetsPanel({
                   checked={checked}
                   onChange={() => toggleKey(opt.value)}
                 />
-                {opt.label}
+                {localizedMetricLabel(opt.value)}
               </label>
             );
           })}
@@ -137,46 +138,39 @@ export function AddSubnetsPanel({
 
       {addedIds.length > 0 ? (
         <div className="text-fg">
-          Đã chọn <b className="text-info">{addedIds.length} {unit} mới</b> · lấy{' '}
-          <b className="tabular-nums text-info">{addition.pool.toFixed(4)}%</b> từ {Object.keys(addition.taken).length}{' '}
-          {unit} lớn nhất
-          {addSplitMode === 'decreasing' ? (
-            <>
-              {' '}
-              · chia giảm dần từ{' '}
-              <b className="tabular-nums text-fg">{(addition.shares[addedIds[0]] ?? 0).toFixed(4)}%</b> xuống{' '}
-              <b className="tabular-nums text-fg">
-                {(addition.shares[addedIds[addedIds.length - 1]] ?? 0).toFixed(4)}%
-              </b>
-              .
-            </>
-          ) : (
-            <>
-              {' '}
-              · mỗi {unit} <b className="tabular-nums text-fg">{(addition.shares[addedIds[0]] ?? 0).toFixed(4)}%</b>.
-            </>
-          )}
-          {overrideCount > 0 && (
-            <span className="text-warning"> ({overrideCount} {unit} đã sửa tay — giữ nguyên số bạn nhập.)</span>
-          )}
+          {t('saved.selectedNew', {
+            count: addedIds.length,
+            unit,
+            pool: addition.pool.toFixed(4),
+            donors: Object.keys(addition.taken).length,
+          })}
+          {addSplitMode === 'decreasing'
+            ? t('saved.splitDecreasingDesc', {
+                from: (addition.shares[addedIds[0]] ?? 0).toFixed(4),
+                to: (addition.shares[addedIds[addedIds.length - 1]] ?? 0).toFixed(4),
+              })
+            : t('saved.splitEqualDesc', {
+                unit,
+                share: (addition.shares[addedIds[0]] ?? 0).toFixed(4),
+              })}
+          {overrideCount > 0 && t('saved.overrideNote', { count: overrideCount, unit })}
         </div>
       ) : (
         <div className="text-fg-muted">
-          Tick {unit} bên dưới để thêm vào danh mục — tỷ trọng của chúng được trích từ {addTakePct}% tỷ trọng của
-          mỗi {unit} trong top {addTopN} lớn nhất, phần còn lại của danh mục giữ nguyên tỷ lệ.
+          {t('saved.tickHint', { unit, take: addTakePct, top: addTopN })}
         </div>
       )}
 
       {!candidates.length ? (
         <div className="text-warning">
-          {hasData
-            ? `Mọi ${unit} trong data table đều đã có trong danh mục này.`
-            : '⚠ Chưa nạp DATA TABLE → không có ứng viên để thêm.'}
+          {hasData ? t('saved.allAlreadyIn', { unit }) : t('saved.noCandidates')}
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-fg-muted">{candidates.length} {unit} chưa có trong danh mục · hiện</span>
+            <span className="text-fg-muted">
+              {t('saved.candidatesHeader', { count: candidates.length, unit })}
+            </span>
             <NumericTextInput
               integer
               value={candidateLimit}
@@ -187,11 +181,18 @@ export function AddSubnetsPanel({
               size="xs"
               variant="secondary"
               icon={<PlusIcon size={11} strokeWidth={2.5} />}
-              title={`Thêm nhanh ${candidateLimit} ${unit} ${profile.key === 'alpha' ? 'tăng mạnh nhất' : 'đứng đầu'} đang hiển thị`}
+              title={t('saved.addTopTitle', {
+                count: candidateLimit,
+                unit,
+                rank: profile.key === 'alpha' ? t('saved.rankGrowth') : t('saved.rankLeaders'),
+              })}
               onClick={() => onPickCandidates(visible.map((c) => c.netuid))}
               className="hover:border-info hover:text-info"
             >
-              Thêm {Math.min(candidateLimit, candidates.length)} {unit} đầu
+              {t('saved.addTopBtn', {
+                count: Math.min(candidateLimit, candidates.length),
+                unit,
+              })}
             </Button>
             <Button
               size="xs"
@@ -200,7 +201,7 @@ export function AddSubnetsPanel({
               onClick={onClearCandidates}
               className="hover:border-warning hover:text-warning"
             >
-              ☐ Bỏ chọn tất cả
+              {t('saved.deselectAll')}
             </Button>
           </div>
           <div className="show-scrollbar max-h-56 overflow-y-auto rounded border border-line bg-surface-sunken/60">

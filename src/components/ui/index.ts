@@ -13,3 +13,4 @@ export { NumericTextInput } from './NumericTextInput';
 export { EmptyState } from './EmptyState';
 export { Eyebrow } from './Eyebrow';
 export { SignedValue } from './SignedValue';
+export { LoadingOverlay } from './LoadingOverlay';

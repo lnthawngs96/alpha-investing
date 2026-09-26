@@ -11,6 +11,7 @@ import { findSubnet } from '@/utils/subnetData';
 import { cn } from '@/utils/classNames';
 import { formatAssetId } from '@/constants/assets';
 import { useAssetProfile } from '@/store/asset/context';
+import { ruleLabel, useLocale } from '@/i18n';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { BookmarkIcon, CheckIcon, CopyIcon, PencilIcon, RefreshIcon, XIcon } from '@/components/icons';
 
@@ -42,6 +43,7 @@ export function PortfolioResult({
   onSave,
 }: PortfolioResultProps) {
   const profile = useAssetProfile();
+  const { t } = useLocale();
   const [copied, setCopied] = useState(false);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -73,16 +75,21 @@ export function PortfolioResult({
       {/* Head */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Eyebrow>Portfolio allocation</Eyebrow>
+          <Eyebrow>{t('portfolio.allocation')}</Eyebrow>
           <div className="mt-2 text-xs text-fg-muted">
-            Tổng:{' '}
+            {t('portfolio.total')}:{' '}
             <span className={cn('font-mono font-bold tabular-nums', valid ? 'text-positive' : 'text-negative')}>
               {total.toFixed(6)}
             </span>
-            {cash > 0 && <span className="text-fg-faint"> · Cash: {cash.toFixed(6)}</span>}
+            {cash > 0 && (
+              <span className="text-fg-faint">
+                {' '}
+                · {t('portfolio.cash')}: {cash.toFixed(6)}
+              </span>
+            )}
             <span className={cn('ml-2 inline-flex items-center gap-1', valid ? 'text-positive' : 'text-negative')}>
               {valid ? <CheckIcon size={12} strokeWidth={2.5} /> : <XIcon size={12} strokeWidth={2.5} />}
-              {valid ? `Hợp lệ (${profile.ruleLabel})` : 'Không hợp lệ'}
+              {valid ? t('portfolio.valid', { rule: ruleLabel(profile.key) }) : t('portfolio.invalid')}
             </span>
           </div>
           {!valid && (
@@ -100,7 +107,7 @@ export function PortfolioResult({
             icon={editMode ? <XIcon size={13} /> : <PencilIcon size={13} />}
             onClick={onToggleEdit}
           >
-            {editMode ? 'Hủy' : 'Chỉnh sửa'}
+            {editMode ? t('common.cancel') : t('portfolio.edit')}
           </Button>
           <Button
             size="sm"
@@ -109,17 +116,17 @@ export function PortfolioResult({
             onClick={handleCopy}
             disabled={!valid}
           >
-            {copied ? 'Đã copy' : 'Copy JSON'}
+            {copied ? t('common.copied') : t('common.copyJson')}
           </Button>
           <Button size="sm" variant="secondary" icon={<RefreshIcon size={13} />} onClick={onRegenerate}>
-            Tạo lại
+            {t('portfolio.regenerate')}
           </Button>
           <Button size="sm" variant="success" icon={<BookmarkIcon size={13} />} onClick={onSave} disabled={!valid}>
-            Lưu danh mục
+            {t('portfolio.save')}
           </Button>
           {editMode && (
             <Button size="sm" variant="success" icon={<CheckIcon size={13} strokeWidth={2.5} />} onClick={handleApply}>
-              Áp dụng &amp; cân bằng
+              {t('portfolio.applyNormalize')}
             </Button>
           )}
         </div>
@@ -135,7 +142,7 @@ export function PortfolioResult({
             <div key={netuid} className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3">
                 <span className="min-w-[36px] font-mono text-xs font-bold text-accent">{formatAssetId(profile, netuid)}</span>
-                <span className="flex-1 truncate text-xs text-fg">{s?.name || 'Unknown'}</span>
+                <span className="flex-1 truncate text-xs text-fg">{s?.name || t('common.unknown')}</span>
                 {!isNaN(metric) && (
                   <span
                     className={cn('font-mono text-[11px] tabular-nums', metric >= 0 ? 'text-positive' : 'text-negative')}
@@ -178,7 +185,7 @@ export function PortfolioResult({
       {/* JSON output */}
       <div className="max-h-[160px] shrink-0 overflow-hidden rounded-lg border border-line bg-surface-sunken">
         <div className="border-b border-line bg-surface-raised/70 px-3 py-1.5">
-          <Eyebrow className="text-fg-faint">JSON output</Eyebrow>
+          <Eyebrow className="text-fg-faint">{t('portfolio.jsonOutput')}</Eyebrow>
         </div>
         <pre className="show-scrollbar max-h-[120px] overflow-auto px-4 py-2 font-mono text-xs leading-relaxed text-code">
           {json}

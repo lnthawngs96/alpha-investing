@@ -1,6 +1,7 @@
 import type { WeightMap } from '@/types';
 import type { ReceiveMode } from '@/constants/editor';
 import type { RedistributeResult } from '@/utils/portfolioMath';
+import { unitLabel, unitNoun, useLocale } from '@/i18n';
 import { Button } from '@/components/ui';
 import { UndoIcon } from '@/components/icons';
 import { formatAssetId } from '@/constants/assets';
@@ -35,11 +36,18 @@ export function RemovedSubnetsPanel({
   onClearReceivers,
 }: RemovedSubnetsPanelProps) {
   const profile = useAssetProfile();
-  const { unit } = profile;
+  const { t } = useLocale();
+  const unit = unitLabel(profile.unit);
+  const noun = unitNoun(profile.unit);
+
   return (
     <div className="mb-3 flex flex-col gap-2 rounded-lg border border-warning/60 bg-warning/10 p-3 text-xs animate-slide-down">
       <div className="font-bold text-warning">
-        Đã bỏ {removedIds.length} {unit} · giải phóng <span className="tabular-nums">{removal.pool.toFixed(2)}%</span>
+        {t('saved.removedBanner', {
+          count: removedIds.length,
+          unit,
+          pool: removal.pool.toFixed(2),
+        })}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {removedIds.map((id) => (
@@ -53,7 +61,7 @@ export function RemovedSubnetsPanel({
             <button
               type="button"
               className="text-fg-faint transition-colors hover:text-positive"
-              title={`Khôi phục ${unit} này vào danh mục`}
+              title={t('saved.restoreTitle', { unit })}
               onClick={() => onRestore(id)}
             >
               <UndoIcon size={12} />
@@ -62,7 +70,7 @@ export function RemovedSubnetsPanel({
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="font-bold text-fg-muted">Chia tỷ trọng đó vào:</span>
+        <span className="font-bold text-fg-muted">{t('saved.redistributeInto')}</span>
         <label className="flex cursor-pointer items-center gap-1.5 text-fg">
           <input
             type="radio"
@@ -70,7 +78,7 @@ export function RemovedSubnetsPanel({
             checked={receiveMode === 'all'}
             onChange={() => onChangeReceiveMode('all')}
           />
-          Tất cả {unit} còn lại (chia đều)
+          {t('saved.receiveAll', { unit })}
         </label>
         <label className="flex cursor-pointer items-center gap-1.5 text-fg">
           <input
@@ -79,33 +87,44 @@ export function RemovedSubnetsPanel({
             checked={receiveMode === 'pick'}
             onChange={() => onChangeReceiveMode('pick')}
           />
-          {unit === 'subnet' ? 'Subnet' : 'Mã'} tôi chọn (tick cột “Nhận”)
+          {t('saved.receivePick', { label: noun })}
         </label>
-        <Button size="xs" variant="secondary" onClick={onSelectAllReceivers} title={`Chia đều cho tất cả ${unit} còn lại`} className="hover:border-positive hover:text-positive">
-          ☑ Chọn tất cả
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={onSelectAllReceivers}
+          title={t('saved.selectAllTitle', { unit })}
+          className="hover:border-positive hover:text-positive"
+        >
+          {t('saved.selectAll')}
         </Button>
         <Button
           size="xs"
           variant="secondary"
           onClick={onClearReceivers}
-          title={`Không ${unit} nào nhận thêm — phần giải phóng sẽ được chuẩn hoá lại theo tỷ lệ hiện tại`}
+          title={t('saved.clearReceiversTitle', { unit })}
           className="hover:border-warning hover:text-warning"
         >
-          ☐ Bỏ chọn tất cả
+          {t('saved.clearAll')}
         </Button>
       </div>
       <div className="text-fg-muted">
         {!removal.remainingIds.length ? (
-          `Không còn ${unit} nào trong danh mục.`
+          t('saved.noUnitsLeft', { unit })
         ) : removal.targets.length ? (
-          <>
-            Mỗi {unit} nhận thêm <b className="tabular-nums text-fg">{removal.share.toFixed(4)}%</b> (
-            {removal.targets.length}/{removal.remainingIds.length} {unit} nhận).
-          </>
+          t('saved.eachReceives', {
+            unit,
+            share: removal.share.toFixed(4),
+            targets: removal.targets.length,
+            remaining: removal.remainingIds.length,
+          })
         ) : (
           <span className="text-warning">
-            Không {unit} nào nhận → giữ nguyên tỷ trọng hiện tại của {removal.remainingIds.length} {unit} còn lại;{' '}
-            {removal.pool.toFixed(2)}% giải phóng sẽ được chuẩn hoá lại theo đúng tỷ lệ giữa chúng khi bấm ÁP DỤNG.
+            {t('saved.noneReceives', {
+              unit,
+              remaining: removal.remainingIds.length,
+              pool: removal.pool.toFixed(2),
+            })}
           </span>
         )}
       </div>

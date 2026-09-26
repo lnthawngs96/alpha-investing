@@ -8,7 +8,7 @@ import type {
   SubnetRow,
   WeightMap,
 } from '@/types';
-import { DD_TRIGGER, DEDUPE_SAFE_MARGIN, OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
+import { DD_TRIGGER, DEDUPE_SAFE_MARGIN, OTHER_GROUP_KEY } from '@/constants/portfolio';
 import {
   DEFAULT_ADD_TAKE_PCT,
   DEFAULT_ADD_TOP_N,
@@ -42,6 +42,7 @@ import {
 } from '@/utils/portfolioGroups';
 import { formatPortfolioJson, parseRelaxedPortfolioJson } from '@/utils/portfolioJson';
 import { findSubnet, isRootSubnet } from '@/utils/subnetData';
+import { tt, unitLabel } from '@/i18n';
 import { useAssetProfile } from '@/store/asset/context';
 
 /** Ứng viên để thêm vào danh mục đang sửa. */
@@ -87,8 +88,8 @@ export interface SavedPortfolioEditorDeps {
  * đổi tên (editingIdx), sửa tỷ trọng (editingWeightsIdx), sửa JSON (editingJsonIdx).
  */
 export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onUpdate, onRename }: SavedPortfolioEditorDeps) {
-  const { unit } = useAssetProfile();
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const { unit: profileUnit } = useAssetProfile();
+  const unit = unitLabel(profileUnit);  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [rebalanceMsgs, setRebalanceMsgs] = useState<Record<number, StatusMessage>>({});
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [nameDraft, setNameDraft] = useState('');
@@ -137,7 +138,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       .filter((r) => !isRootSubnet(r) && !inPortfolio.has(String(r.netuid)))
       .map((r) => ({
         netuid: String(r.netuid),
-        name: r.name || 'Unknown',
+        name: r.name || tt('common.unknown'),
         change: bestMetricValue(r, keys),
       }))
       .sort((a, b) => (isNaN(b.change) ? -Infinity : b.change) - (isNaN(a.change) ? -Infinity : a.change));
@@ -359,7 +360,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       if (other) {
         return gs.map((g) => (g.changeKey === OTHER_GROUP_KEY ? { ...g, netuids: [...g.netuids, id] } : g));
       }
-      return [...gs, { changeKey: OTHER_GROUP_KEY, n: 1, netuids: [id], label: OTHER_GROUP_LABEL }];
+      return [...gs, { changeKey: OTHER_GROUP_KEY, n: 1, netuids: [id], label: tt('portfolio.otherGroup') }];
     });
     applyDraft({ removed: removedIds.filter((x) => x !== id) });
   }
@@ -465,7 +466,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
   function applyWeightEdits(idx: number, saved: SavedPortfolioRecord) {
     const netuids = Object.keys(weightDrafts);
     if (!netuids.length) {
-      flashMessage(idx, { ok: false, text: `Danh mục phải có ít nhất 1 ${unit}` }, 2500);
+      flashMessage(idx, { ok: false, text: tt('saved.mustHaveOne', { unit }) }, 2500);
       return;
     }
     // Chuẩn hoá tổng về 1.0 (giống editor khi generate) để luôn hợp lệ Tao/Alpha.
@@ -488,7 +489,11 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
         idx,
         {
           ok: false,
-          text: `⚠ Trùng lặp với "${c.name || 'danh mục khác'}" (d=${c.dist} < ${DD_TRIGGER}) → sẽ bị dedupe. Chưa lưu.`,
+          text: tt('saved.dedupeWarn', {
+            name: c.name || tt('saved.otherPortfolio'),
+            dist: c.dist,
+            threshold: DD_TRIGGER,
+          }),
         },
         4000
       );
@@ -527,7 +532,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
         changeKey: OTHER_GROUP_KEY,
         n: orphan.length,
         netuids: orphan,
-        label: OTHER_GROUP_LABEL,
+        label: tt('portfolio.otherGroup'),
       });
     }
 
@@ -538,7 +543,12 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       idx,
       {
         ok: true,
-        text: `✓ Đã cập nhật tỷ trọng${addedCount ? ` · thêm ${addedCount} ${unit} mới` : ''} (d=${dup.minDist ?? '—'})`,
+        text: tt('saved.updatedWeights', {
+          added: addedCount
+            ? tt('saved.addedSuffix', { count: addedCount, unit })
+            : '',
+          dist: dup.minDist ?? '—',
+        }),
       },
       2500
     );
@@ -577,12 +587,18 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
     const dup = checkDedupe(portfolio, othersExcept(idx));
     if (!dup.ok) {
       const c = dup.conflicts[0];
-      setErr(`⚠ Trùng lặp với "${c.name || 'danh mục khác'}" (d=${c.dist} < ${DD_TRIGGER}) → sẽ bị dedupe. Chưa lưu.`);
+      setErr(
+        tt('saved.dedupeWarn', {
+          name: c.name || tt('saved.otherPortfolio'),
+          dist: c.dist,
+          threshold: DD_TRIGGER,
+        })
+      );
       return;
     }
     onUpdate(idx, portfolio);
     cancelEditJson();
-    flashMessage(idx, { ok: true, text: `✓ Đã cập nhật JSON (d=${dup.minDist ?? '—'})` }, 2500);
+    flashMessage(idx, { ok: true, text: tt('saved.updatedJson', { dist: dup.minDist ?? '—' }) }, 2500);
   }
 
   // ── Copy / đổi tên / rebalance ────────────────────────────────────────────
@@ -631,13 +647,21 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       // Không tách đủ xa (thường do danh mục chỉ 1 subnet, luôn chuẩn hoá về cùng vector).
       message = {
         ok: false,
-        text:
-          `⚠ Không tách đủ xa khỏi danh mục khác (d=${minDist ?? '—'} < ${target.toFixed(3)}). ` +
-          `Danh mục 1 ${unit} không thể thoát dedupe bằng đổi tỷ trọng — hãy đổi/thêm ${unit}. Chưa lưu.`,
+        text: tt('saved.rebalanceFail', {
+          dist: minDist ?? '—',
+          target: target.toFixed(3),
+          unit,
+        }),
       };
     } else {
       onUpdate(idx, newPortfolio);
-      message = { ok: true, text: `✓ Đã rebalance an toàn (d=${minDist ?? '—'} ≥ ${DD_TRIGGER})` };
+      message = {
+        ok: true,
+        text: tt('saved.rebalanceOk', {
+          dist: minDist ?? '—',
+          threshold: DD_TRIGGER,
+        }),
+      };
     }
     flashMessage(idx, message, 3500);
   }

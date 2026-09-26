@@ -1,5 +1,6 @@
 import type { AssetProfile, Portfolio, SavedPortfolioRecord } from '@/types';
 import { DD_TRIGGER, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
+import { getActiveLocale, tt } from '@/i18n';
 import { checkDedupe, portfolioEntriesDesc, validatePortfolio } from '@/utils/portfolioValidation';
 
 /**
@@ -43,7 +44,7 @@ export function describePortfolio(
   savedPortfolios: SavedPortfolioRecord[] = [],
   names: Record<string, string> = {}
 ): PortfolioReport | EmptyPortfolioReport {
-  if (!portfolio) return { portfolio: null, message: 'Chưa có danh mục nào được tạo.' };
+  if (!portfolio) return { portfolio: null, message: tt('agentTools.emptyPortfolio') };
 
   const validation = validatePortfolio(portfolio);
   const dedupe = checkDedupe(portfolio, savedPortfolios);
@@ -73,11 +74,23 @@ export function describePortfolio(
 
 /**
  * Đổi văn bản mô tả / lỗi của tool (viết cho alpha) sang ngữ cảnh cổ phiếu Mỹ:
- * subnet → mã cổ phiếu, netuid → ticker, Tao/Alpha → cổ phiếu Mỹ, thanh khoản → vốn hoá.
+ * subnet → mã cổ phiếu / ticker, netuid → ticker, Tao/Alpha → cổ phiếu Mỹ / US stocks,
+ * thanh khoản / liquidity → weightLabel của profile.
  * Alpha trả nguyên văn — mô tả tool alpha không đổi.
  */
 export function localizeForAsset(profile: AssetProfile, text: string): string {
   if (profile.key === 'alpha') return text;
+  if (getActiveLocale() === 'en') {
+    return text
+      .replace(/Subnet (?!88)/g, 'Ticker ')
+      .replace(/\bSubnets\b/g, 'Tickers')
+      .replace(/\bsubnets\b/g, 'tickers')
+      .replace(/\bsubnet\b/g, 'ticker')
+      .replace(/Netuid/g, 'Ticker')
+      .replace(/\bnetuid\b/g, 'ticker')
+      .replace(/Tao\/Alpha rules/g, 'US stock rules')
+      .replace(/\bliquidity\b/g, profile.weightLabel);
+  }
   return text
     .replace(/Subnet (?!88)/g, 'Mã ')
     .replace(/\bsubnet\b/g, 'mã cổ phiếu')

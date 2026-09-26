@@ -1,6 +1,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { clearAgentLog, getAgentLogSnapshot, subscribeAgentLog } from '@/store/agentLog';
 import { isWebMCPAvailable } from '@/webmcp/useWebMCP';
+import { useLocale } from '@/i18n';
 import { cn } from '@/utils/classNames';
 import { IconButton } from '@/components/ui';
 import { BotIcon, CheckIcon, EraserIcon, XIcon } from '@/components/icons';
@@ -16,6 +17,7 @@ export function AgentActivityLog() {
   const entries = useSyncExternalStore(subscribeAgentLog, getAgentLogSnapshot);
   const [collapsed, setCollapsed] = useState(false);
   const available = isWebMCPAvailable();
+  const { t, dateLocale } = useLocale();
 
   if (collapsed) {
     return (
@@ -42,18 +44,18 @@ export function AgentActivityLog() {
         <div className="flex items-center gap-2">
           <span
             className={cn('h-2 w-2 rounded-full', available ? 'bg-positive animate-pulse-ring' : 'bg-fg-faint')}
-            title={available ? 'WebMCP đang hoạt động' : 'Trình duyệt chưa bật WebMCP'}
+            title={available ? t('header.webmcpOnTitle') : t('header.webmcpOffTitle')}
           />
           <BotIcon size={14} className="text-accent" animated={available} />
-          <span className="eyebrow">Agent activity</span>
+          <span className="eyebrow">{t('agent.title')}</span>
         </div>
         <div className="flex items-center gap-1">
           {entries.length > 0 && (
-            <IconButton label="Xoá nhật ký" onClick={clearAgentLog}>
+            <IconButton label={t('agent.clear')} onClick={clearAgentLog}>
               <EraserIcon size={14} />
             </IconButton>
           )}
-          <IconButton label="Thu gọn" onClick={() => setCollapsed(true)}>
+          <IconButton label={t('agent.collapse')} onClick={() => setCollapsed(true)}>
             <XIcon size={14} />
           </IconButton>
         </div>
@@ -62,9 +64,7 @@ export function AgentActivityLog() {
       <div className="show-scrollbar min-h-0 flex-1 overflow-y-auto">
         {entries.length === 0 ? (
           <div className="whitespace-pre-line px-4 py-6 text-center text-xs leading-relaxed text-fg-faint">
-            {available
-              ? 'Chưa có hành động nào.\nAgent có thể nạp dữ liệu, dựng danh mục và thoát dedupe qua WebMCP.'
-              : 'Trình duyệt này chưa bật WebMCP.\nMở app trong ChatGPT desktop, hoặc Chrome với cờ enable-webmcp-testing.'}
+            {available ? t('agent.emptyOn') : t('agent.emptyOff')}
           </div>
         ) : (
           entries.map((e, i) => (
@@ -84,7 +84,7 @@ export function AgentActivityLog() {
               <div className="min-w-0 flex-1">
                 <div className="break-words text-xs leading-relaxed text-fg">{e.summary}</div>
                 <div className="mt-0.5 font-mono text-[10px] text-fg-faint">
-                  {e.tool} · {e.at.toLocaleTimeString()}
+                  {e.tool} · {e.at.toLocaleTimeString(dateLocale)}
                 </div>
               </div>
             </div>

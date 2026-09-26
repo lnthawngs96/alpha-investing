@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** URL đầy đủ tới /assets nếu không dùng Vite proxy (vd production). */
-  readonly VITE_ASSETS_API_URL?: string;
-  /** URL đầy đủ SSE bảng subnet TaoMarketCap nếu không dùng Vite proxy. */
-  readonly VITE_TAOMARKETCAP_STREAM_URL?: string;
+  /** URL JSON bảng Alpha nếu không dùng `/api/alpha`. */
+  readonly VITE_ALPHA_SUBNETS_URL?: string;
+  /** URL JSON market data nếu không dùng `/api/market`. */
+  readonly VITE_MARKET_DATA_URL?: string;
 }
 
 interface ImportMeta {

@@ -3,6 +3,9 @@
  * Chỉ định dạng — không có logic nghiệp vụ.
  */
 
+import { LOCALE_META } from '@/constants/locale';
+import { getActiveLocale } from '@/i18n';
+
 /** Giá trị "nguyên thuỷ" hiển thị được trong một ô bảng. */
 export function isPrimitive(value: unknown): value is string | number | boolean | null | undefined {
   return (
@@ -58,7 +61,7 @@ export function escHTML(s: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Tên hiển thị của danh mục đã lưu: tên đặt, hoặc thời điểm lưu theo locale vi-VN. */
+/** Tên hiển thị của danh mục đã lưu: tên đặt, hoặc thời điểm lưu theo locale đang dùng. */
 export function formatSavedAt(savedAt: string): string {
-  return new Date(savedAt).toLocaleString('vi-VN');
+  return new Date(savedAt).toLocaleString(LOCALE_META[getActiveLocale()].dateLocale);
 }

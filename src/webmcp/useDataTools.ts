@@ -2,6 +2,7 @@ import type { AssetKey, MetricKey, SavedPortfolioRecord, SubnetRow, TabKey, Weig
 import { DD_TRIGGER, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
 import { ASSET_KEYS, ASSET_PROFILES, profileForAssetClass } from '@/constants/assets';
 import { TAB_KEYS } from '@/constants/tabs';
+import { tt } from '@/i18n';
 import { buildColumns, filterExcludedSubnets, getMetricValue, getTopNByChange } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { withAssetClass } from '@/utils/portfolioMath';
@@ -16,7 +17,7 @@ export interface StockReloadResult {
   cashEtfs: string[];
 }
 
-/** Kết quả tải lại bảng Alpha từ TaoMarketCap. */
+/** Kết quả tải lại bảng Alpha. */
 export interface AlphaReloadResult {
   total: number;
   loaded: number;
@@ -30,13 +31,12 @@ export interface DataToolsDeps {
   /** Bảng cổ phiếu Mỹ (đã loại cash ETFs). */
   stockData: SubnetRow[];
   reloadStockData: () => Promise<StockReloadResult>;
-  /** Tải lại bảng Alpha (TaoMarketCap + dereg). */
+  /** Tải lại bảng Alpha (+ dereg). */
   reloadAlphaData: () => Promise<AlphaReloadResult>;
   allData: SubnetRow[];
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
   onSubmitData: (data: SubnetRow[], deregIds?: number[]) => void;
-  onClearData: () => void;
   savedPortfolios: SavedPortfolioRecord[];
   deleteSaved: (idx: number) => void;
   renameSaved: (idx: number, name: string) => void;
@@ -59,7 +59,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'load_subnet_data',
       description:
-        'Nạp bảng dữ liệu subnet Bittensor vào app (thường không cần — app tự tải từ TaoMarketCap). Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Tuỳ chọn truyền dereg: mảng netuid (vd [84]) — các subnet đó sẽ bị loại khỏi bảng. Subnet 0 và danh sách loại trừ cố định cũng tự động bị bỏ.',
+        'Nạp bảng dữ liệu subnet Bittensor vào app (thường không cần — app tự tải). Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Tuỳ chọn truyền dereg: mảng netuid (vd [84]) — các subnet đó sẽ bị loại khỏi bảng. Subnet 0 và danh sách loại trừ cố định cũng tự động bị bỏ.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -78,15 +78,15 @@ export function useDataTools(deps: DataToolsDeps): void {
       },
       execute: async ({ subnets, dereg }: { subnets: SubnetRow[]; dereg?: number[] }) => {
         if (!Array.isArray(subnets) || !subnets.length) {
-          throw new Error('Cần một mảng object subnet không rỗng.');
+          throw new Error(tt('agentTools.needSubnetArray'));
         }
         if (typeof subnets[0] !== 'object' || subnets[0] === null) {
-          throw new Error('Mỗi phần tử phải là object, ví dụ { "netuid": 1, "name": "apex" }.');
+          throw new Error(tt('agentTools.needObjectItems'));
         }
         const deregIds = Array.isArray(dereg)
           ? dereg.map((id, i) => {
               const n = Number(id);
-              if (!Number.isFinite(n)) throw new Error(`dereg[${i}] không phải số hợp lệ`);
+              if (!Number.isFinite(n)) throw new Error(tt('agentTools.deregNotNumber', { i }));
               return n;
             })
           : undefined;
@@ -103,8 +103,12 @@ export function useDataTools(deps: DataToolsDeps): void {
           fields: buildColumns(subnets),
           log:
             effectiveDereg.length > 0
-              ? `Nạp ${loaded}/${subnets.length} subnet (dereg: ${effectiveDereg.join(', ')})`
-              : `Nạp ${loaded} subnet vào bảng dữ liệu`,
+              ? tt('agentTools.loadWithDereg', {
+                  loaded,
+                  total: subnets.length,
+                  dereg: effectiveDereg.join(', '),
+                })
+              : tt('agentTools.loadSubnets', { loaded }),
         };
       },
     },
@@ -130,8 +134,8 @@ export function useDataTools(deps: DataToolsDeps): void {
           saved_portfolios_in_active_asset: savedInAsset,
           log:
             asset === 'alpha'
-              ? `Đọc trạng thái app (${allData.length} subnet, tab "${tab}")`
-              : `Đọc trạng thái app (cổ phiếu Mỹ: ${stockData.length} mã, tab "${tab}")`,
+              ? tt('agentTools.appStateAlpha', { count: allData.length, tab })
+              : tt('agentTools.appStateStock', { count: stockData.length, tab }),
         };
       },
     },
@@ -164,13 +168,11 @@ export function useDataTools(deps: DataToolsDeps): void {
         const data = activeData();
         if (!data.length) {
           throw new Error(
-            profile.key === 'alpha'
-              ? 'Chưa có dữ liệu. Gọi load_subnet_data trước.'
-              : 'Chưa có dữ liệu cổ phiếu. Gọi reload_stock_data trước.'
+            profile.key === 'alpha' ? tt('agentTools.noAlphaData') : tt('agentTools.noStockData')
           );
         }
         if (!METRIC_KEYS.includes(metric)) {
-          throw new Error(`metric phải là một trong: ${METRIC_KEYS.join(', ')}`);
+          throw new Error(tt('agentTools.metricMustBe', { list: METRIC_KEYS.join(', ') }));
         }
         const rows = getTopNByChange(data, limit, metric);
         return {
@@ -194,7 +196,7 @@ export function useDataTools(deps: DataToolsDeps): void {
                   mc: r.mc !== undefined ? toNumber(r.mc) : undefined,
                 }
           ),
-          log: L(`Truy vấn top ${rows.length} subnet theo ${metric}`),
+          log: L(tt('agentTools.queryTop', { count: rows.length, metric })),
         };
       },
     },
@@ -209,9 +211,11 @@ export function useDataTools(deps: DataToolsDeps): void {
         required: ['tab'],
       },
       execute: async ({ tab }: { tab: TabKey }) => {
-        if (!TAB_KEYS.includes(tab)) throw new Error(`tab phải là một trong: ${TAB_KEYS.join(', ')}`);
+        if (!TAB_KEYS.includes(tab)) {
+          throw new Error(tt('agentTools.tabMustBe', { list: TAB_KEYS.join(', ') }));
+        }
         state.current.setActiveTab(tab);
-        return { active_tab: tab, log: `Chuyển sang tab "${tab}"` };
+        return { active_tab: tab, log: tt('agentTools.switchTab', { tab }) };
       },
     },
 
@@ -230,14 +234,14 @@ export function useDataTools(deps: DataToolsDeps): void {
             return {
               index: i,
               asset: profileForAssetClass(s.portfolio?._).key,
-              name: s.name || `(chưa đặt tên) #${i}`,
+              name: s.name || tt('agentTools.unnamedSaved', { i }),
               saved_at: s.savedAt,
               subnet_count: entries.length,
               // Tổng |phân bổ| — cổ phiếu Mỹ có thể short (giá trị âm).
               total_allocation: +entries.reduce((a, [, v]) => a + Math.abs(Number(v)), 0).toFixed(6),
             };
           }),
-          log: `Liệt kê ${saved.length} danh mục đã lưu`,
+          log: tt('agentTools.listSaved', { count: saved.length }),
         };
       },
     },
@@ -256,11 +260,11 @@ export function useDataTools(deps: DataToolsDeps): void {
       execute: async ({ index, name }: { index: number; name: string }) => {
         const { savedPortfolios: saved, renameSaved } = state.current;
         if (index < 0 || index >= saved.length) {
-          throw new Error(`index ${index} không tồn tại (có ${saved.length} danh mục).`);
+          throw new Error(tt('agentTools.indexMissing', { index, count: saved.length }));
         }
-        if (!String(name).trim()) throw new Error('Tên không được rỗng.');
+        if (!String(name).trim()) throw new Error(tt('agentTools.nameEmpty'));
         renameSaved(index, name);
-        return { index, name, log: `Đổi tên danh mục #${index} thành "${name}"` };
+        return { index, name, log: tt('agentTools.renameSaved', { index, name }) };
       },
     },
 
@@ -276,11 +280,11 @@ export function useDataTools(deps: DataToolsDeps): void {
       execute: async ({ index }: { index: number }) => {
         const { savedPortfolios: saved, deleteSaved } = state.current;
         if (index < 0 || index >= saved.length) {
-          throw new Error(`index ${index} không tồn tại (có ${saved.length} danh mục).`);
+          throw new Error(tt('agentTools.indexMissing', { index, count: saved.length }));
         }
         const label = saved[index]?.name || `#${index}`;
         deleteSaved(index);
-        return { deleted_index: index, remaining: saved.length - 1, log: `Xoá danh mục "${label}"` };
+        return { deleted_index: index, remaining: saved.length - 1, log: tt('agentTools.deleteSaved', { name: label }) };
       },
     },
 
@@ -306,7 +310,7 @@ export function useDataTools(deps: DataToolsDeps): void {
       execute: async ({ allocations }: { allocations: WeightMap }) => {
         const { savedPortfolios: saved } = state.current;
         if (!allocations || typeof allocations !== 'object') {
-          throw new Error(L('Cần map netuid → tỷ trọng.'));
+          throw new Error(L(tt('agentTools.needAllocMap')));
         }
         const candidate = withAssetClass(allocations, profile.assetClass);
         const result = checkDedupe(candidate, saved);
@@ -314,11 +318,17 @@ export function useDataTools(deps: DataToolsDeps): void {
           ...(describePortfolio(candidate, saved) as PortfolioReport).dedupe,
           verdict:
             result.ok && (result.minDist === null || result.minDist >= SAFE_DEDUPE_DISTANCE)
-              ? 'an toàn'
+              ? tt('agentTools.dedupeSafe')
               : result.ok
-                ? `sát ngưỡng (${result.minDist} — nên đạt ≥ ${SAFE_DEDUPE_DISTANCE.toFixed(6)})`
-                : `sẽ bị dedupe (${result.minDist} < ${DD_TRIGGER})`,
-          log: `Kiểm tra dedupe: khoảng cách nhỏ nhất ${result.minDist}`,
+                ? tt('agentTools.dedupeNear', {
+                    dist: String(result.minDist),
+                    safe: SAFE_DEDUPE_DISTANCE.toFixed(6),
+                  })
+                : tt('agentTools.dedupeHit', {
+                    dist: String(result.minDist),
+                    trigger: DD_TRIGGER,
+                  }),
+          log: tt('agentTools.checkDedupe', { dist: String(result.minDist) }),
         };
       },
     },
@@ -333,23 +343,29 @@ export function useDataTools(deps: DataToolsDeps): void {
         required: ['asset'],
       },
       execute: async ({ asset }: { asset: AssetKey }) => {
-        if (!ASSET_KEYS.includes(asset)) throw new Error(`asset phải là một trong: ${ASSET_KEYS.join(', ')}`);
+        if (!ASSET_KEYS.includes(asset)) {
+          throw new Error(tt('agentTools.assetMustBe', { list: ASSET_KEYS.join(', ') }));
+        }
         state.current.setAsset(asset);
-        return { active_asset: asset, log: `Chuyển sang mục "${ASSET_PROFILES[asset].label}"` };
+        return { active_asset: asset, log: tt('agentTools.switchAsset', { label: ASSET_PROFILES[asset].label }) };
       },
     },
 
     {
       name: 'reload_stock_data',
       description:
-        'Tải lại bảng cổ phiếu Mỹ từ api.investing88.ai/assets (ticker, name, sector, price, volume, pv = price × volume, mc = vốn hoá). Cash ETFs trong cùng trang được loại khỏi bảng (mạng tính chúng như tiền mặt). Dữ liệu này tự tải khi mở app, không cần dán tay.',
+        'Tải lại bảng cổ phiếu Mỹ (ticker, name, sector, price, volume, pv = price × volume, mc = vốn hoá). Cash ETFs được loại khỏi bảng (mạng tính chúng như tiền mặt). Dữ liệu này tự tải khi mở app, không cần dán tay.',
       inputSchema: { type: 'object', properties: {} },
       execute: async () => {
         const result = await state.current.reloadStockData();
         return {
           ...result,
           removed_cash_etfs: result.total - result.loaded,
-          log: `Tải ${result.loaded}/${result.total} mã cổ phiếu Mỹ (loại ${result.total - result.loaded} cash ETF)`,
+          log: tt('agentTools.reloadStock', {
+            loaded: result.loaded,
+            total: result.total,
+            removed: result.total - result.loaded,
+          }),
         };
       },
     },
@@ -357,7 +373,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'reload_alpha_data',
       description:
-        'Tải lại bảng Alpha từ TaoMarketCap SSE (netuid, name, price, emission, liquidity/TAO, price_change_1_hour/1_day/1_week/1_month) và dereg list từ api.investing88.ai/assets. Dữ liệu này tự tải khi mở app, không cần dán JSON.',
+        'Tải lại bảng Alpha (netuid, name, price, emission, liquidity/TAO, price_change_1_hour/1_day/1_week/1_month) và dereg list. Dữ liệu này tự tải khi mở app, không cần dán JSON.',
       inputSchema: { type: 'object', properties: {} },
       execute: async () => {
         const result = await state.current.reloadAlphaData();
@@ -366,7 +382,12 @@ export function useDataTools(deps: DataToolsDeps): void {
         return {
           ...result,
           removed: result.total - result.loaded,
-          log: `Tải ${result.loaded}/${result.total} subnet Alpha (loại ${result.total - result.loaded}; dereg: ${result.deregIds.join(', ') || '—'})`,
+          log: tt('agentTools.reloadAlpha', {
+            loaded: result.loaded,
+            total: result.total,
+            removed: result.total - result.loaded,
+            dereg: result.deregIds.join(', ') || '—',
+          }),
         };
       },
     },

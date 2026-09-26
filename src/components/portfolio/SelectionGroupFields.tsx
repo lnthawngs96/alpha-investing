@@ -1,6 +1,7 @@
 import type { MetricKey } from '@/types';
 import { TOP_N_MAX } from '@/constants/portfolio';
 import { useAssetProfile } from '@/store/asset/context';
+import { localizedMetricLabel, unitLabel, useLocale } from '@/i18n';
 import { cn } from '@/utils/classNames';
 import { Button, Eyebrow } from '@/components/ui';
 import { TrashIcon } from '@/components/icons';
@@ -35,7 +36,9 @@ export function SelectionGroupFields({
   onRemove,
 }: SelectionGroupFieldsProps) {
   const { metricOptions, unit } = useAssetProfile();
+  const { t, locale } = useLocale();
   const disabled = new Set(disabledKeys);
+  void locale;
 
   function toggleKey(key: MetricKey) {
     if (disabled.has(key)) return;
@@ -51,7 +54,7 @@ export function SelectionGroupFields({
     <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-line bg-surface/40 p-3">
       <div className="flex items-center justify-between gap-2">
         <Eyebrow>
-          {title} · tối đa {TOP_N_MAX} {unit}
+          {t('portfolio.groupMax', { title, max: TOP_N_MAX, unit: unitLabel(unit) })}
         </Eyebrow>
         {canRemove && onRemove && (
           <Button
@@ -60,9 +63,9 @@ export function SelectionGroupFields({
             icon={<TrashIcon size={12} />}
             onClick={onRemove}
             className="hover:border-negative hover:text-negative"
-            title="Xoá nhóm này"
+            title={t('portfolio.removeGroupTitle')}
           >
-            Xoá
+            {t('portfolio.removeGroup')}
           </Button>
         )}
       </div>
@@ -77,12 +80,13 @@ export function SelectionGroupFields({
       />
       <div className="flex flex-col gap-1 rounded-md border border-line bg-surface-sunken/40 p-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-fg-faint">
-          Tiêu chí · chọn một hoặc nhiều
+          {t('portfolio.criteriaHint')}
         </span>
         <div className="flex flex-col gap-0.5">
           {metricOptions.map((opt) => {
             const checked = changeKeys.includes(opt.value);
             const isDisabled = disabled.has(opt.value);
+            const label = localizedMetricLabel(opt.value);
             return (
               <label
                 key={opt.value}
@@ -91,7 +95,7 @@ export function SelectionGroupFields({
                   isDisabled && 'cursor-not-allowed opacity-40',
                   checked && !isDisabled && 'bg-accent/10 text-accent'
                 )}
-                title={isDisabled ? 'Đã dùng ở nhóm khác' : opt.label}
+                title={isDisabled ? t('portfolio.metricUsed') : label}
               >
                 <input
                   type="checkbox"
@@ -100,7 +104,7 @@ export function SelectionGroupFields({
                   disabled={isDisabled}
                   onChange={() => toggleKey(opt.value)}
                 />
-                <span className="leading-snug">{opt.label}</span>
+                <span className="leading-snug">{label}</span>
               </label>
             );
           })}

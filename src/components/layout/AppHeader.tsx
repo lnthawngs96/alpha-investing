@@ -1,14 +1,17 @@
 import { isWebMCPAvailable } from '@/webmcp/useWebMCP';
+import { useLocale } from '@/i18n';
 import { cn } from '@/utils/classNames';
 import { BotIcon, LogoMark } from '@/components/icons';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 /**
- * Header cố định: logo + tên app, trạng thái WebMCP và bộ chọn theme.
+ * Header cố định: logo + tên app, trạng thái WebMCP, ngôn ngữ và theme.
  * Quầng sáng gradient phía sau trôi chậm (animate-drift) để header có chiều sâu.
  */
 export function AppHeader() {
   const webmcp = isWebMCPAvailable();
+  const { t } = useLocale();
 
   return (
     <header className="relative z-30 shrink-0 border-b border-line bg-surface/80 backdrop-blur">
@@ -35,7 +38,7 @@ export function AppHeader() {
                 SN88
               </span>
             </h1>
-            <p className="text-[11px] text-fg-muted">Subnet 88 Portfolio Builder — người và agent cùng dựng danh mục</p>
+            <p className="text-[11px] text-fg-muted">{t('header.tagline')}</p>
           </div>
         </div>
 
@@ -45,14 +48,15 @@ export function AppHeader() {
               'hidden items-center gap-2 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold sm:flex',
               webmcp ? 'border-positive/50 bg-positive/10 text-positive' : 'border-line bg-surface text-fg-faint'
             )}
-            title={webmcp ? 'WebMCP đang hoạt động' : 'Trình duyệt chưa bật WebMCP'}
+            title={webmcp ? t('header.webmcpOnTitle') : t('header.webmcpOffTitle')}
           >
             <BotIcon size={14} animated={webmcp} />
             <span
               className={cn('h-1.5 w-1.5 rounded-full', webmcp ? 'bg-positive animate-pulse-ring' : 'bg-fg-faint')}
             />
-            {webmcp ? 'WebMCP sẵn sàng' : 'WebMCP chưa bật'}
+            {webmcp ? t('header.webmcpOn') : t('header.webmcpOff')}
           </div>
+          <LanguageSwitcher />
           <ThemeSwitcher />
         </div>
       </div>
