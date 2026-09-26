@@ -4,7 +4,8 @@ export const INVESTING88_ASSETS_URL =
 
 /**
  * SSE bảng subnet của TaoMarketCap (event `type: "full"`).
- * Dev/preview đi qua Vite proxy `/api/taomarketcap` (gắn Origin bắt buộc).
+ * Dev: Vite proxy `/api/taomarketcap`. Production (Vercel): Edge function
+ * cùng path (gắn Origin bắt buộc).
  */
 export const TAOMARKETCAP_SUBNETS_STREAM_URL =
   import.meta.env.VITE_TAOMARKETCAP_STREAM_URL ??
