@@ -6,9 +6,10 @@ import { ALPHA_PROFILE, ASSET_PROFILES, DEFAULT_ASSET, STOCK_PROFILE, profileFor
 import { useSavedPortfolios } from '@/store/savedPortfolios/context';
 import type { UpdateSavedExtra } from '@/store/savedPortfolios/context';
 import { AssetProfileContext } from '@/store/asset/context';
+import { useAlphaSubnetData } from '@/hooks/useAlphaSubnetData';
 import { useUsStockData } from '@/hooks/useUsStockData';
 import { useDataTools } from '@/webmcp/useDataTools';
-import { buildColumns, filterExcludedSubnets } from '@/utils/subnetData';
+import { buildColumns } from '@/utils/subnetData';
 import { cn } from '@/utils/classNames';
 import { Notice } from '@/components/ui';
 import { BookmarkIcon, TableIcon, TargetIcon } from '@/components/icons';
@@ -23,17 +24,17 @@ import { SavedPortfolios } from '@/components/saved/SavedPortfolios';
 import { AgentActivityLog } from '@/components/agent/AgentActivityLog';
 
 /**
- * Gốc của app: giữ bảng dữ liệu của hai mục đầu tư (alpha: allData dán tay;
- * cổ phiếu Mỹ: tự tải từ API), mục + tab đang mở; kết nối với store danh mục đã
- * lưu và đăng ký bộ tool WebMCP cấp App.
+ * Gốc của app: giữ bảng dữ liệu của hai mục đầu tư (alpha + cổ phiếu Mỹ đều
+ * tự tải từ API), mục + tab đang mở; kết nối với store danh mục đã lưu và
+ * đăng ký bộ tool WebMCP cấp App.
  *
  * Nhánh cổ phiếu Mỹ được bọc AssetProfileContext = STOCK_PROFILE; nhánh alpha
  * dùng context mặc định (ALPHA_PROFILE) nên chạy đúng như trước.
  */
 export default function App() {
-  const [allData, setAllData] = useState<SubnetRow[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>(DEFAULT_TAB);
   const [asset, setAsset] = useState<AssetKey>(DEFAULT_ASSET);
+  const alpha = useAlphaSubnetData();
   const stock = useUsStockData();
   const {
     savedPortfolios,
@@ -47,6 +48,7 @@ export default function App() {
   } = useSavedPortfolios();
 
   const profile = ASSET_PROFILES[asset];
+  const allData = alpha.rows;
   const activeData = asset === 'stock' ? stock.rows : allData;
   const columns = useMemo(() => buildColumns(activeData), [activeData]);
 
@@ -65,11 +67,12 @@ export default function App() {
   }, [savedPortfolios, asset]);
 
   function handleSubmit(data: SubnetRow[], deregIds: number[] = []) {
-    setAllData(filterExcludedSubnets(data, deregIds));
+    // applyManual + filterExcludedSubnets trong hook (theo deregIds truyền vào).
+    alpha.applyManual(data, deregIds);
   }
 
   function handleClear() {
-    setAllData([]);
+    alpha.clear();
     setActiveTab(DEFAULT_TAB);
   }
 
@@ -80,6 +83,7 @@ export default function App() {
     setAsset,
     stockData: stock.rows,
     reloadStockData: stock.reload,
+    reloadAlphaData: alpha.reload,
     allData,
     activeTab,
     setActiveTab,
@@ -113,9 +117,9 @@ export default function App() {
 
         <AssetSwitcher value={asset} onChange={setAsset} counts={{ alpha: allData.length, stock: stock.rows.length }} />
 
-        {/* Hai card luôn mount (ẩn bằng CSS): card alpha giữ nội dung đã dán + dereg. */}
+        {/* Hai card luôn mount (ẩn bằng CSS): giữ state khi chuyển mục. */}
         <div className={cn(asset === 'alpha' ? 'contents' : 'hidden')}>
-          <DataInputCard onSubmit={handleSubmit} onClear={handleClear} loadedCount={allData.length} />
+          <DataInputCard alpha={alpha} />
         </div>
         <div className={cn(asset === 'stock' ? 'contents' : 'hidden')}>
           <StockDataCard stock={stock} />

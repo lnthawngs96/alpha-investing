@@ -16,6 +16,13 @@ export interface StockReloadResult {
   cashEtfs: string[];
 }
 
+/** Kết quả tải lại bảng Alpha từ TaoMarketCap. */
+export interface AlphaReloadResult {
+  total: number;
+  loaded: number;
+  deregIds: number[];
+}
+
 export interface DataToolsDeps {
   /** Mục đầu tư đang xem: tool tra cứu / kiểm tra dedupe chạy trên mục này. */
   asset: AssetKey;
@@ -23,6 +30,8 @@ export interface DataToolsDeps {
   /** Bảng cổ phiếu Mỹ (đã loại cash ETFs). */
   stockData: SubnetRow[];
   reloadStockData: () => Promise<StockReloadResult>;
+  /** Tải lại bảng Alpha (TaoMarketCap + dereg). */
+  reloadAlphaData: () => Promise<AlphaReloadResult>;
   allData: SubnetRow[];
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
@@ -50,7 +59,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'load_subnet_data',
       description:
-        'Nạp bảng dữ liệu subnet Bittensor vào app. Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Tuỳ chọn truyền dereg: mảng netuid (vd [84]) — các subnet đó sẽ bị loại khỏi bảng. Agent có thể lấy dữ liệu này từ nguồn bên ngoài rồi nạp vào đây thay cho việc người dùng dán tay. Subnet 0 và danh sách loại trừ cố định cũng tự động bị bỏ.',
+        'Nạp bảng dữ liệu subnet Bittensor vào app (thường không cần — app tự tải từ TaoMarketCap). Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Tuỳ chọn truyền dereg: mảng netuid (vd [84]) — các subnet đó sẽ bị loại khỏi bảng. Subnet 0 và danh sách loại trừ cố định cũng tự động bị bỏ.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -61,7 +70,7 @@ export function useDataTools(deps: DataToolsDeps): void {
           },
           dereg: {
             type: 'array',
-            description: 'Mảng netuid sẽ bị loại khỏi bảng, ví dụ [84].',
+            description: 'Mảng netuid sẽ bị loại khỏi bảng, ví dụ [84]. Bỏ trống để giữ dereg đang có từ API.',
             items: { type: 'number' },
           },
         },
@@ -80,20 +89,21 @@ export function useDataTools(deps: DataToolsDeps): void {
               if (!Number.isFinite(n)) throw new Error(`dereg[${i}] không phải số hợp lệ`);
               return n;
             })
-          : [];
+          : undefined;
         state.current.onSubmitData(subnets, deregIds);
         state.current.setAsset('alpha');
         state.current.setActiveTab('table');
-        const loaded = filterExcludedSubnets(subnets, deregIds).length;
+        const effectiveDereg = deregIds ?? [];
+        const loaded = filterExcludedSubnets(subnets, effectiveDereg).length;
         return {
           submitted: subnets.length,
           loaded,
           removed_by_dereg: subnets.length - loaded,
-          dereg: deregIds,
+          dereg: effectiveDereg,
           fields: buildColumns(subnets),
           log:
-            deregIds.length > 0
-              ? `Nạp ${loaded}/${subnets.length} subnet (dereg: ${deregIds.join(', ')})`
+            effectiveDereg.length > 0
+              ? `Nạp ${loaded}/${subnets.length} subnet (dereg: ${effectiveDereg.join(', ')})`
               : `Nạp ${loaded} subnet vào bảng dữ liệu`,
         };
       },
@@ -340,6 +350,23 @@ export function useDataTools(deps: DataToolsDeps): void {
           ...result,
           removed_cash_etfs: result.total - result.loaded,
           log: `Tải ${result.loaded}/${result.total} mã cổ phiếu Mỹ (loại ${result.total - result.loaded} cash ETF)`,
+        };
+      },
+    },
+
+    {
+      name: 'reload_alpha_data',
+      description:
+        'Tải lại bảng Alpha từ TaoMarketCap SSE (netuid, name, price, emission, liquidity/TAO, price_change_1_hour/1_day/1_week/1_month) và dereg list từ api.investing88.ai/assets. Dữ liệu này tự tải khi mở app, không cần dán JSON.',
+      inputSchema: { type: 'object', properties: {} },
+      execute: async () => {
+        const result = await state.current.reloadAlphaData();
+        state.current.setAsset('alpha');
+        state.current.setActiveTab('table');
+        return {
+          ...result,
+          removed: result.total - result.loaded,
+          log: `Tải ${result.loaded}/${result.total} subnet Alpha (loại ${result.total - result.loaded}; dereg: ${result.deregIds.join(', ') || '—'})`,
         };
       },
     },
