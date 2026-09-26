@@ -1,13 +1,13 @@
 import { useRef, useState, type FormEvent } from 'react';
 import type { SubnetRow } from '@/types';
 import { SAMPLE_SUBNETS } from '@/constants/sampleSubnets';
-import { parseSubnetInput } from '@/utils/subnetData';
+import { parseDeregInput, parseSubnetInput } from '@/utils/subnetData';
 import { cn } from '@/utils/classNames';
 import { Badge, Button, Card, CardHeader } from '@/components/ui';
 import { CheckIcon, ChevronIcon, PlayIcon, SparklesIcon, XIcon } from '@/components/icons';
 
 export interface DataInputCardProps {
-  onSubmit: (data: SubnetRow[]) => void;
+  onSubmit: (data: SubnetRow[], deregIds: number[]) => void;
   onClear: () => void;
   /** Số subnet đang nạp (để hiện badge trên header). */
   loadedCount: number;
@@ -18,15 +18,19 @@ const PLACEHOLDER = `[
   { "netuid": 2, ... }
 ]`;
 
+const DEREG_PLACEHOLDER = `[84]`;
+
 /**
- * Card nhập dữ liệu: dán JSON subnet, hoặc nạp bộ mẫu. Tự thu gọn sau khi
- * submit thành công để nhường chỗ cho bảng / danh mục.
+ * Card nhập dữ liệu: dán JSON subnet + (tuỳ chọn) mảng dereg netuid.
+ * Khi submit, các subnet trong dereg sẽ bị loại khỏi bảng.
+ * Tự thu gọn sau khi submit thành công để nhường chỗ cho bảng / danh mục.
  */
 export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState('');
   const [charCount, setCharCount] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const deregRef = useRef<HTMLTextAreaElement>(null);
 
   function handleInput(e: FormEvent<HTMLTextAreaElement>) {
     setCharCount(e.currentTarget.value.length);
@@ -35,11 +39,13 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
 
   function handleSubmit() {
     const raw = textareaRef.current?.value.trim() ?? '';
+    const deregRaw = deregRef.current?.value ?? '';
     try {
       const parsed = parseSubnetInput(raw);
+      const deregIds = parseDeregInput(deregRaw);
       setError('');
       setCollapsed(true);
-      onSubmit(parsed);
+      onSubmit(parsed, deregIds);
     } catch (e) {
       setError('⚠ ' + (e instanceof Error ? e.message : String(e)));
     }
@@ -51,11 +57,12 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
     setCharCount(text.length);
     setError('');
     setCollapsed(true);
-    onSubmit([...SAMPLE_SUBNETS]);
+    onSubmit([...SAMPLE_SUBNETS], parseDeregInput(deregRef.current?.value ?? ''));
   }
 
   function handleClear() {
     if (textareaRef.current) textareaRef.current.value = '';
+    if (deregRef.current) deregRef.current.value = '';
     setCharCount(0);
     setError('');
     setCollapsed(false);
@@ -101,6 +108,24 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
               onInput={handleInput}
               spellCheck={false}
             />
+
+            <label className="mt-4 block">
+              <span className="mb-1.5 flex items-baseline justify-between gap-2">
+                <span className="eyebrow">Dereg list</span>
+                <span className="text-[11px] text-fg-faint">
+                  Mảng netuid sẽ bị loại khỏi bảng khi submit
+                </span>
+              </span>
+              <textarea
+                ref={deregRef}
+                className="field w-full min-h-[2.75rem] resize-y font-mono text-code leading-relaxed p-3"
+                placeholder={DEREG_PLACEHOLDER}
+                onInput={() => setError('')}
+                spellCheck={false}
+                rows={2}
+              />
+            </label>
+
             {error && <div className="mt-2 text-xs text-negative animate-slide-down">{error}</div>}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button variant="primary" icon={<PlayIcon size={12} />} onClick={handleSubmit}>

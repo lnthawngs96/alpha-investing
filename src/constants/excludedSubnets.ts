@@ -1,6 +1,7 @@
 /**
- * Danh sách netuid bị loại bỏ ngay sau khi submit data.
- * Cập nhật tại đây khi cần thay đổi — hàm lọc nằm ở utils/subnetData.ts.
+ * Danh sách netuid loại trừ cố định (luôn bỏ khi submit).
+ * Danh sách dereg động (người dùng / agent dán khi submit) được truyền runtime
+ * vào filterExcludedSubnets — không ghi vào đây.
  */
 export const EXCLUDED_SUBNET_IDS: readonly number[] = [];
 

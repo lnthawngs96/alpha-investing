@@ -36,8 +36,8 @@ export default function App() {
 
   const columns = useMemo(() => buildColumns(allData), [allData]);
 
-  function handleSubmit(data: SubnetRow[]) {
-    setAllData(filterExcludedSubnets(data));
+  function handleSubmit(data: SubnetRow[], deregIds: number[] = []) {
+    setAllData(filterExcludedSubnets(data, deregIds));
   }
 
   function handleClear() {

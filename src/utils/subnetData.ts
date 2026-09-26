@@ -13,9 +13,16 @@ import { numberOrNegInfinity, toNumber } from './numeric';
  * Tiện ích thao tác trên bảng dữ liệu subnet: lọc, xếp hạng, dựng cột.
  */
 
-/** Loại bỏ các subnet trong danh sách loại trừ (constants/excludedSubnets). */
-export function filterExcludedSubnets(data: SubnetRow[]): SubnetRow[] {
-  return data.filter((row) => !EXCLUDED_SUBNET_SET.has(Number(row.netuid)));
+/**
+ * Loại bỏ subnet trong danh sách loại trừ cố định (constants/excludedSubnets)
+ * và danh sách dereg runtime (vd. [84] người dùng dán khi submit).
+ */
+export function filterExcludedSubnets(
+  data: SubnetRow[],
+  deregIds: Iterable<number> = []
+): SubnetRow[] {
+  const excluded = new Set<number>([...EXCLUDED_SUBNET_SET, ...deregIds].map(Number));
+  return data.filter((row) => !excluded.has(Number(row.netuid)));
 }
 
 /** Subnet 0 (root) không bao giờ được đưa vào danh mục. */
@@ -149,4 +156,25 @@ export function parseSubnetInput(raw: string): SubnetRow[] {
   const list = parsed as unknown[];
   if (!list.length || typeof list[0] !== 'object') throw new Error('Cần array of objects');
   return list as SubnetRow[];
+}
+
+/**
+ * Parse mảng netuid dereg (subnet sẽ bị bỏ khỏi bảng khi submit).
+ * Rỗng / chỉ khoảng trắng → [] (không loại thêm). Ví dụ hợp lệ: [84] hoặc [84, 12].
+ */
+export function parseDeregInput(raw: string): number[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error('Dereg list cần JSON hợp lệ, ví dụ [84]');
+  }
+  if (!Array.isArray(parsed)) throw new Error('Dereg list cần là mảng số, ví dụ [84]');
+  return parsed.map((id, i) => {
+    const n = Number(id);
+    if (!Number.isFinite(n)) throw new Error(`Dereg[${i}] không phải số hợp lệ`);
+    return n;
+  });
 }

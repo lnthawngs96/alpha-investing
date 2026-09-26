@@ -1,7 +1,7 @@
 import type { MetricKey, SavedPortfolioRecord, SubnetRow, TabKey, WeightMap } from '@/types';
 import { DD_TRIGGER, METRIC_KEYS, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
 import { TAB_KEYS } from '@/constants/tabs';
-import { buildColumns, getMetricValue, getTopNByChange } from '@/utils/subnetData';
+import { buildColumns, filterExcludedSubnets, getMetricValue, getTopNByChange } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { withAssetClass } from '@/utils/portfolioMath';
 import { checkDedupe } from '@/utils/portfolioValidation';
@@ -12,7 +12,7 @@ export interface DataToolsDeps {
   allData: SubnetRow[];
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
-  onSubmitData: (data: SubnetRow[]) => void;
+  onSubmitData: (data: SubnetRow[], deregIds?: number[]) => void;
   onClearData: () => void;
   savedPortfolios: SavedPortfolioRecord[];
   deleteSaved: (idx: number) => void;
@@ -31,7 +31,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'load_subnet_data',
       description:
-        'Nạp bảng dữ liệu subnet Bittensor vào app. Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Agent có thể lấy dữ liệu này từ nguồn bên ngoài rồi nạp vào đây thay cho việc người dùng dán tay. Subnet 0 và các subnet trong danh sách loại trừ sẽ tự động bị bỏ.',
+        'Nạp bảng dữ liệu subnet Bittensor vào app. Nhận một mảng object, mỗi object là một subnet với ít nhất trường netuid, thường kèm name, price, emission, liquidity, price_change_1_hour/1_day/1_week/1_month, fear_and_greed_index. Tuỳ chọn truyền dereg: mảng netuid (vd [84]) — các subnet đó sẽ bị loại khỏi bảng. Agent có thể lấy dữ liệu này từ nguồn bên ngoài rồi nạp vào đây thay cho việc người dùng dán tay. Subnet 0 và danh sách loại trừ cố định cũng tự động bị bỏ.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -40,22 +40,41 @@ export function useDataTools(deps: DataToolsDeps): void {
             description: 'Mảng object subnet. Mỗi phần tử cần có netuid.',
             items: { type: 'object' },
           },
+          dereg: {
+            type: 'array',
+            description: 'Mảng netuid sẽ bị loại khỏi bảng, ví dụ [84].',
+            items: { type: 'number' },
+          },
         },
         required: ['subnets'],
       },
-      execute: async ({ subnets }: { subnets: SubnetRow[] }) => {
+      execute: async ({ subnets, dereg }: { subnets: SubnetRow[]; dereg?: number[] }) => {
         if (!Array.isArray(subnets) || !subnets.length) {
           throw new Error('Cần một mảng object subnet không rỗng.');
         }
         if (typeof subnets[0] !== 'object' || subnets[0] === null) {
           throw new Error('Mỗi phần tử phải là object, ví dụ { "netuid": 1, "name": "apex" }.');
         }
-        state.current.onSubmitData(subnets);
+        const deregIds = Array.isArray(dereg)
+          ? dereg.map((id, i) => {
+              const n = Number(id);
+              if (!Number.isFinite(n)) throw new Error(`dereg[${i}] không phải số hợp lệ`);
+              return n;
+            })
+          : [];
+        state.current.onSubmitData(subnets, deregIds);
         state.current.setActiveTab('table');
+        const loaded = filterExcludedSubnets(subnets, deregIds).length;
         return {
-          loaded: subnets.length,
+          submitted: subnets.length,
+          loaded,
+          removed_by_dereg: subnets.length - loaded,
+          dereg: deregIds,
           fields: buildColumns(subnets),
-          log: `Nạp ${subnets.length} subnet vào bảng dữ liệu`,
+          log:
+            deregIds.length > 0
+              ? `Nạp ${loaded}/${subnets.length} subnet (dereg: ${deregIds.join(', ')})`
+              : `Nạp ${loaded} subnet vào bảng dữ liệu`,
         };
       },
     },
