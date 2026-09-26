@@ -17,11 +17,10 @@ import { BookmarkIcon, TableIcon, TargetIcon } from '@/components/icons';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { AssetSwitcher } from '@/components/layout/AssetSwitcher';
 import { TabBar, type TabItem } from '@/components/layout/TabBar';
-import { DataInputCard } from '@/components/data-input/DataInputCard';
-import { StockDataCard } from '@/components/data-input/StockDataCard';
 import { DataTable } from '@/components/data-table/DataTable';
 import { PortfolioBuilder } from '@/components/portfolio/PortfolioBuilder';
 import { SavedPortfolios } from '@/components/saved/SavedPortfolios';
+import { MarketIndexBar } from '@/components/market/MarketIndexBar';
 import { AgentActivityLog } from '@/components/agent/AgentActivityLog';
 
 /**
@@ -121,14 +120,9 @@ export default function App() {
           </Notice>
         )}
 
-        <AssetSwitcher value={asset} onChange={setAsset} counts={{ alpha: allData.length, stock: stock.rows.length }} />
-
-        {/* Hai card luôn mount (ẩn bằng CSS): giữ state khi chuyển mục. */}
-        <div className={cn(asset === 'alpha' ? 'contents' : 'hidden')}>
-          <DataInputCard alpha={alpha} />
-        </div>
-        <div className={cn(asset === 'stock' ? 'contents' : 'hidden')}>
-          <StockDataCard stock={stock} />
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <AssetSwitcher value={asset} onChange={setAsset} counts={{ alpha: allData.length, stock: stock.rows.length }} />
+          {asset === 'alpha' && <MarketIndexBar rows={allData} className="min-w-0 flex-1" />}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

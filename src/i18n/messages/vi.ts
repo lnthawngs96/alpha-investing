@@ -53,22 +53,14 @@ export const vi = {
   notice: {
     restored: 'localStorage thiếu dữ liệu — đã khôi phục danh mục từ bản sao trong sessionStorage.',
   },
-  dataAlpha: {
-    title: 'Data input · Alpha',
-    reload: 'Tải lại dữ liệu',
-    loading: 'Đang tải…',
-    error: 'Không tải được: {error}',
-    dereg: 'Dereg list',
-    badge: '{count} subnets',
-  },
-  dataStock: {
-    title: 'Data input · Cổ phiếu Mỹ',
-    reload: 'Tải lại dữ liệu',
-    loading: 'Đang tải…',
-    error: 'Không tải được: {error}',
-    cashEtfs: 'Cash ETFs (loại khỏi bảng)',
-    cashHint: '{count} mã',
-    badge: '{count} mã',
+  market: {
+    title: 'Chỉ số thị trường',
+    hint: 'Trung bình đều % thay đổi của {count} subnet (đã loại uid 0 và dereg list)',
+    sample: '{count} subnet',
+    h1: '1H',
+    d1: '1D',
+    w1: '1W',
+    m1: '1M',
   },
   table: {
     rows: 'rows',
@@ -212,8 +204,8 @@ export const vi = {
     checkDedupeTitle: 'So khoảng cách dedupe của tất cả danh mục đã lưu với nhau (ngưỡng 0.01)',
     noTableWarn:
       '⚠ Chưa nạp DATA TABLE → không phân loại được top {primary} / top {secondary}. {hint} bật phân loại.',
-    noTableHintAlpha: 'Paste data ở ô DATA INPUT để',
-    noTableHintStock: 'Tải lại dữ liệu cổ phiếu ở ô phía trên để',
+    noTableHintAlpha: 'Đợi app tải xong dữ liệu Alpha để',
+    noTableHintStock: 'Đợi app tải xong dữ liệu cổ phiếu để',
     namePlaceholder: 'Tên danh mục…',
     countLabel: '{count} {unit}',
     tierBadgeTitle: '{label}: {count} {unit} · {weight}% tỷ trọng — {hint}',

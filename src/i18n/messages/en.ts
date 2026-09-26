@@ -55,22 +55,14 @@ export const en = {
   notice: {
     restored: 'localStorage was empty — restored portfolios from the sessionStorage backup.',
   },
-  dataAlpha: {
-    title: 'Data input · Alpha',
-    reload: 'Reload data',
-    loading: 'Loading…',
-    error: 'Failed to load: {error}',
-    dereg: 'Dereg list',
-    badge: '{count} subnets',
-  },
-  dataStock: {
-    title: 'Data input · US stocks',
-    reload: 'Reload data',
-    loading: 'Loading…',
-    error: 'Failed to load: {error}',
-    cashEtfs: 'Cash ETFs (excluded)',
-    cashHint: '{count} tickers',
-    badge: '{count} tickers',
+  market: {
+    title: 'Market index',
+    hint: 'Equal-weighted avg % change across {count} subnets (excludes uid 0 and dereg list)',
+    sample: '{count} subnets',
+    h1: '1H',
+    d1: '1D',
+    w1: '1W',
+    m1: '1M',
   },
   table: {
     rows: 'rows',
@@ -214,8 +206,8 @@ export const en = {
     checkDedupeTitle: 'Compare dedupe distance across all saved portfolios (threshold 0.01)',
     noTableWarn:
       '⚠ DATA TABLE not loaded → cannot classify top {primary} / top {secondary}. {hint} enable classification.',
-    noTableHintAlpha: 'Paste data in DATA INPUT to',
-    noTableHintStock: 'Reload US stock data above to',
+    noTableHintAlpha: 'Wait for Alpha data to finish loading to',
+    noTableHintStock: 'Wait for US stock data to finish loading to',
     namePlaceholder: 'Portfolio name…',
     countLabel: '{count} {unit}',
     tierBadgeTitle: '{label}: {count} {unit} · {weight}% weight — {hint}',
