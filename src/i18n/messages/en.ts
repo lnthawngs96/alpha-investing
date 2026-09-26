@@ -107,6 +107,14 @@ export const en = {
     copied: 'Copied',
     copyJson: 'Copy JSON',
   },
+  guide: {
+    badge: 'Guide',
+    open: 'Open Subnet 88 guide',
+    close: 'Close guide',
+    title: 'Subnet 88 guide',
+    subtitle: 'Official rules & scoring',
+    sourceLabel: 'Official reference:',
+  },
   metrics: {
     price_change_1_hour: '1h price change',
     price_change_1_day: '1d price change',

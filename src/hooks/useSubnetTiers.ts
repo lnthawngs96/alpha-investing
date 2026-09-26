@@ -49,13 +49,15 @@ export interface SubnetTiers {
  */
 export function useSubnetTiers(currentData: SubnetRow[], topEmissionN: number, topLiquidityN: number): SubnetTiers {
   const profile = useAssetProfile();
-  const { locale } = useLocale();
+  // `t` đổi identity khi đổi ngôn ngữ → memo nhãn tier tính lại (tt đọc activeLocale).
+  const { t } = useLocale();
   const { primary, secondary } = profile.tierFields;
   const emissionRanks = useMemo(() => buildRankIndex(currentData, primary), [currentData, primary]);
   const liquidityRanks = useMemo(() => buildRankIndex(currentData, secondary), [currentData, secondary]);
   const canRank = emissionRanks.size > 0 || liquidityRanks.size > 0;
 
   const localizedConfig = useMemo(() => {
+    void t;
     const next = {} as Record<TierKey, TierConfig>;
     for (const tier of TIER_ORDER) {
       next[tier] = {
@@ -65,17 +67,20 @@ export function useSubnetTiers(currentData: SubnetRow[], topEmissionN: number, t
       };
     }
     return next;
-  }, [profile.key, profile.tiers, locale]);
+  }, [profile.key, profile.tiers, t]);
 
-  const localizedNames = useMemo(
-    () => ({
+  const localizedNames = useMemo(() => {
+    void t;
+    return {
       primary: tierPrimaryName(profile.key),
       secondary: tierSecondaryName(profile.key),
-    }),
-    [profile.key, locale]
-  );
+    };
+  }, [profile.key, t]);
 
-  const localizedUnit = useMemo(() => unitLabel(profile.unit), [profile.unit, locale]);
+  const localizedUnit = useMemo(() => {
+    void t;
+    return unitLabel(profile.unit);
+  }, [profile.unit, t]);
 
   // Phân loại một subnet: thứ hạng emission / thanh khoản + nhóm.
   const classify = useCallback(

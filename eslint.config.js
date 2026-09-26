@@ -19,5 +19,9 @@ export default defineConfig([
       ecmaVersion: 2022,
       globals: globals.browser,
     },
+    rules: {
+      // Provider + hook cùng file là pattern chuẩn; cho phép export useLocale.
+      'react-refresh/only-export-components': ['error', { allowConstantExport: true, allowExportNames: ['useLocale'] }],
+    },
   },
 ]);

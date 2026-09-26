@@ -64,7 +64,6 @@ export function useUsStockData() {
       .then(applyResult)
       .catch((err: unknown) => {
         applyError(ac, err);
-        if (!ac.signal.aborted) console.warn('Không tải được bảng cổ phiếu Mỹ:', err);
       });
     return () => ac.abort();
   }, [applyResult, applyError]);

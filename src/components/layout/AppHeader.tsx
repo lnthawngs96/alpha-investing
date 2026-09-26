@@ -4,9 +4,10 @@ import { cn } from '@/utils/classNames';
 import { BotIcon, LogoMark } from '@/components/icons';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { GuideSwitcher } from './GuideSwitcher';
 
 /**
- * Header cố định: logo + tên app, trạng thái WebMCP, ngôn ngữ và theme.
+ * Header cố định: logo + tên app, trạng thái WebMCP, ngôn ngữ, guide và theme.
  * Quầng sáng gradient phía sau trôi chậm (animate-drift) để header có chiều sâu.
  */
 export function AppHeader() {
@@ -57,6 +58,7 @@ export function AppHeader() {
             {webmcp ? t('header.webmcpOn') : t('header.webmcpOff')}
           </div>
           <LanguageSwitcher />
+          <GuideSwitcher />
           <ThemeSwitcher />
         </div>
       </div>

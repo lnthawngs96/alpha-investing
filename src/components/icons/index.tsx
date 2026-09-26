@@ -342,6 +342,17 @@ export function InfoIcon(props: IconProps) {
   );
 }
 
+/** Icon Guide / sách hướng dẫn. */
+export function BookIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 0-2 2V5z" />
+      <path d="M6 3a2 2 0 0 0-2 2v15" />
+      <path d="M8 7h7M8 11h7M8 15h5" />
+    </Svg>
+  );
+}
+
 export function CheckCircleIcon(props: IconProps) {
   return (
     <Svg {...props}>

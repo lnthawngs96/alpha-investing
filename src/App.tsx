@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { AssetKey, Portfolio, SavedPortfolioRecord, SubnetRow, TabKey } from '@/types';
 import { DEFAULT_TAB } from '@/constants/tabs';
 import { CHANGE_DEFAULT } from '@/constants/portfolio';
@@ -38,14 +38,11 @@ export default function App() {
   const alpha = useAlphaSubnetData();
   const stock = useUsStockData();
   // Overlay boot: chỉ tắt khi cả Alpha + US stock đã xong lần gọi đầu (ready hoặc error).
-  // Reload sau đó không bật lại overlay toàn trang.
+  // Reload sau đó không bật lại overlay toàn trang (sticky).
   const [bootDone, setBootDone] = useState(false);
-  useEffect(() => {
-    if (bootDone) return;
-    if (alpha.status !== 'loading' && stock.status !== 'loading') {
-      setBootDone(true);
-    }
-  }, [alpha.status, stock.status, bootDone]);
+  if (!bootDone && alpha.status !== 'loading' && stock.status !== 'loading') {
+    setBootDone(true);
+  }
   const {
     savedPortfolios,
     restoredFromBackup,

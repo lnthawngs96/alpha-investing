@@ -62,9 +62,6 @@ export function useAlphaSubnetData() {
           : deregRef.current.length
             ? deregRef.current
             : [];
-      if (deregSettled.status === 'rejected' && !ac.signal.aborted) {
-        console.warn('Không tải được dereg list:', deregSettled.reason);
-      }
       return applyLoaded(subnetsSettled.value, dereg);
     },
     [applyLoaded]
@@ -87,14 +84,30 @@ export function useAlphaSubnetData() {
     setStatus('ready');
   }, []);
 
+  // Mount: fetch trong .then (không gọi load() — tránh setState đồng bộ trong effect).
   useEffect(() => {
     const ac = new AbortController();
     abortRef.current = ac;
-    load(ac).catch((err: unknown) => {
-      if (!ac.signal.aborted) console.warn('Không tải được bảng Alpha:', err);
-    });
+    void Promise.allSettled([fetchSubnetTable(ac.signal), fetchAssetsDeregList(ac.signal)]).then(
+      ([subnetsSettled, deregSettled]) => {
+        if (ac.signal.aborted) return;
+        if (subnetsSettled.status === 'rejected') {
+          const err = subnetsSettled.reason;
+          setStatus('error');
+          setError(err instanceof Error ? err.message : String(err));
+          return;
+        }
+        const dereg =
+          deregSettled.status === 'fulfilled'
+            ? deregSettled.value
+            : deregRef.current.length
+              ? deregRef.current
+              : [];
+        applyLoaded(subnetsSettled.value, dereg);
+      }
+    );
     return () => ac.abort();
-  }, [load]);
+  }, [applyLoaded]);
 
   return {
     rows,

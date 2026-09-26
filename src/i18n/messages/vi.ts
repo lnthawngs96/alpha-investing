@@ -105,6 +105,14 @@ export const vi = {
     copied: 'Đã copy',
     copyJson: 'Copy JSON',
   },
+  guide: {
+    badge: 'Hướng dẫn',
+    open: 'Mở hướng dẫn Subnet 88',
+    close: 'Đóng hướng dẫn',
+    title: 'Hướng dẫn Subnet 88',
+    subtitle: 'Luật chính thức & cách tính điểm',
+    sourceLabel: 'Tham chiếu chính thức:',
+  },
   metrics: {
     price_change_1_hour: 'Tăng trưởng 1 giờ',
     price_change_1_day: 'Tăng trưởng 1 ngày',
