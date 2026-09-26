@@ -4,26 +4,19 @@ import type { StockReloadResult } from '@/webmcp/useDataTools';
 import {
   fetchUsStockAssets,
   filterExcludedTickers,
-  parseTickerList,
   type UsStockAssets,
 } from '@/utils/fetchDeregList';
 
 export type StockLoadState = 'idle' | 'loading' | 'ready' | 'error';
 
-/** Mảng ticker → chuỗi hiển thị trong ô cash ETFs (dạng JSON, sửa tay được). */
-function formatTickerList(tickers: string[]): string {
-  return JSON.stringify(tickers);
-}
-
 /**
  * Bảng cổ phiếu Mỹ: tự tải từ api.investing88.ai/assets khi mở app (không cần
  * dán tay), tải lại theo yêu cầu. Cash ETFs trong cùng trang được loại khỏi
- * bảng — giống dereg list bên alpha — và người dùng có thể sửa danh sách đó.
+ * bảng — giống dereg list bên alpha (chỉ đọc từ API, không sửa tay).
  */
 export function useUsStockData() {
   const [rawRows, setRawRows] = useState<SubnetRow[]>([]);
   const [excluded, setExcluded] = useState<string[]>([]);
-  const [cashText, setCashText] = useState('');
   // Bắt đầu ở 'loading' vì effect mount tải ngay (không setState đồng bộ trong effect).
   const [status, setStatus] = useState<StockLoadState>('loading');
   const [error, setError] = useState('');
@@ -37,7 +30,6 @@ export function useUsStockData() {
   const applyResult = useCallback(({ stocks, cashEtfs }: UsStockAssets): StockReloadResult => {
     setRawRows(stocks);
     setExcluded(cashEtfs);
-    setCashText(formatTickerList(cashEtfs));
     setFetchedAt(new Date());
     setError('');
     setStatus('ready');
@@ -80,25 +72,12 @@ export function useUsStockData() {
     return () => ac.abort();
   }, [applyResult, applyError]);
 
-  /** Áp danh sách cash ETFs người dùng sửa. Trả về thông báo lỗi, hoặc '' nếu hợp lệ. */
-  function applyCashText(text: string = cashText): string {
-    try {
-      setExcluded(parseTickerList(text));
-      return '';
-    } catch (err) {
-      return err instanceof Error ? err.message : String(err);
-    }
-  }
-
   return {
     /** Bảng đã loại cash ETFs — dùng cho mọi tab. */
     rows,
     /** Số mã trước khi loại cash ETFs. */
     totalCount: rawRows.length,
     excluded,
-    cashText,
-    setCashText,
-    applyCashText,
     status,
     error,
     fetchedAt,

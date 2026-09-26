@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { SubnetRow } from '@/types';
 import { SAMPLE_SUBNETS } from '@/constants/sampleSubnets';
 import { fetchAssetsDeregList } from '@/utils/fetchDeregList';
-import { parseDeregInput, parseSubnetInput } from '@/utils/subnetData';
+import { parseSubnetInput } from '@/utils/subnetData';
 import { cn } from '@/utils/classNames';
 import { Badge, Button, Card, CardHeader } from '@/components/ui';
 import { CheckIcon, ChevronIcon, PlayIcon, SparklesIcon, XIcon } from '@/components/icons';
@@ -19,33 +19,27 @@ const PLACEHOLDER = `[
   { "netuid": 2, ... }
 ]`;
 
-const DEREG_PLACEHOLDER = `[84]`;
-
 type DeregLoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
- * Card nhập dữ liệu: dán JSON subnet + mảng dereg netuid.
- * Dereg list được fetch từ api.investing88.ai/assets khi app mở lần đầu.
- * Khi submit, các subnet trong dereg sẽ bị loại khỏi bảng.
+ * Card nhập dữ liệu: dán JSON subnet. Dereg list lấy thẳng từ
+ * api.investing88.ai/assets (chỉ hiển thị, không cần điền) và bị loại khỏi
+ * bảng khi submit.
  */
 export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState('');
   const [charCount, setCharCount] = useState(0);
-  const [deregText, setDeregText] = useState('');
+  const [deregIds, setDeregIds] = useState<number[]>([]);
   const [deregLoad, setDeregLoad] = useState<DeregLoadState>('idle');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  /** Bản dereg lấy từ API — giữ lại khi Clear data (không xoá cấu hình API). */
-  const apiDeregRef = useRef('');
 
   useEffect(() => {
     const ac = new AbortController();
     setDeregLoad('loading');
     fetchAssetsDeregList(ac.signal)
       .then((ids) => {
-        const text = JSON.stringify(ids);
-        apiDeregRef.current = text;
-        setDeregText(text);
+        setDeregIds(ids);
         setDeregLoad('ready');
       })
       .catch((err: unknown) => {
@@ -65,7 +59,6 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
     const raw = textareaRef.current?.value.trim() ?? '';
     try {
       const parsed = parseSubnetInput(raw);
-      const deregIds = parseDeregInput(deregText);
       setError('');
       setCollapsed(true);
       onSubmit(parsed, deregIds);
@@ -80,7 +73,7 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
     setCharCount(text.length);
     setError('');
     setCollapsed(true);
-    onSubmit([...SAMPLE_SUBNETS], parseDeregInput(deregText));
+    onSubmit([...SAMPLE_SUBNETS], deregIds);
   }
 
   function handleClear() {
@@ -88,8 +81,6 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
     setCharCount(0);
     setError('');
     setCollapsed(false);
-    // Giữ / khôi phục dereg từ API nếu có.
-    if (apiDeregRef.current) setDeregText(apiDeregRef.current);
     onClear();
   }
 
@@ -99,8 +90,8 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
       : deregLoad === 'ready'
         ? 'Đã lấy từ api.investing88.ai/assets'
         : deregLoad === 'error'
-          ? 'Không tải được API — có thể dán tay, ví dụ [84]'
-          : 'Mảng netuid sẽ bị loại khỏi bảng khi submit';
+          ? 'Không tải được API — dereg rỗng'
+          : 'Lấy từ api.investing88.ai/assets khi mở app';
 
   return (
     <Card className="overflow-hidden animate-slide-up">
@@ -141,8 +132,8 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
               spellCheck={false}
             />
 
-            <label className="mt-4 block">
-              <span className="mb-1.5 flex items-baseline justify-between gap-2">
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
                 <span className="eyebrow">Dereg list</span>
                 <span
                   className={cn(
@@ -152,20 +143,15 @@ export function DataInputCard({ onSubmit, onClear, loadedCount }: DataInputCardP
                 >
                   {deregHint}
                 </span>
-              </span>
-              <textarea
-                className="field w-full min-h-[2.75rem] resize-y font-mono text-code leading-relaxed p-3"
-                placeholder={DEREG_PLACEHOLDER}
-                value={deregText}
-                onChange={(e) => {
-                  setDeregText(e.target.value);
-                  setError('');
-                }}
-                spellCheck={false}
-                rows={2}
-                disabled={deregLoad === 'loading'}
-              />
-            </label>
+              </div>
+              <p className="font-mono text-code leading-relaxed text-fg-muted">
+                {deregLoad === 'loading'
+                  ? '…'
+                  : deregLoad === 'error'
+                    ? '—'
+                    : JSON.stringify(deregIds)}
+              </p>
+            </div>
 
             {error && <div className="mt-2 text-xs text-negative animate-slide-down">{error}</div>}
             <div className="mt-4 flex flex-wrap items-center gap-3">

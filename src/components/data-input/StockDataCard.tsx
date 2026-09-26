@@ -11,23 +11,18 @@ export interface StockDataCardProps {
 /**
  * Card dữ liệu cổ phiếu Mỹ: không cần dán JSON — bảng lấy thẳng từ
  * api.investing88.ai/assets mỗi lần mở app (hoặc bấm tải lại). Cash ETFs
- * (mạng tính như tiền mặt) bị loại khỏi bảng, giống dereg list bên alpha.
+ * (mạng tính như tiền mặt) bị loại khỏi bảng, giống dereg list bên alpha —
+ * chỉ hiển thị, không cần điền.
  */
 export function StockDataCard({ stock }: StockDataCardProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [cashError, setCashError] = useState('');
-  const { rows, totalCount, excluded, cashText, status, error, fetchedAt } = stock;
+  const { rows, totalCount, excluded, status, error, fetchedAt } = stock;
   const loading = status === 'loading';
 
   function handleReload() {
-    setCashError('');
     stock.reload().catch(() => {
       /* lỗi đã hiện trong card */
     });
-  }
-
-  function handleApplyCash() {
-    setCashError(stock.applyCashText());
   }
 
   const statusText =
@@ -81,30 +76,16 @@ export function StockDataCard({ stock }: StockDataCardProps) {
               <span className={cn('text-xs', status === 'error' ? 'text-negative' : 'text-fg-muted')}>{statusText}</span>
             </div>
 
-            <label className="block">
-              <span className="mb-1.5 flex items-baseline justify-between gap-2">
-                <span className="eyebrow">Cash ETFs (loại khỏi bảng)</span>
-                <span className={cn('text-[11px]', cashError ? 'text-negative' : 'text-fg-faint')}>
-                  {cashError || `${excluded.length} mã · mạng tính như tiền mặt`}
-                </span>
-              </span>
-              <textarea
-                className="field w-full min-h-[2.75rem] resize-y font-mono text-code leading-relaxed p-3"
-                placeholder='["SGOV", "BIL"]'
-                value={cashText}
-                onChange={(e) => {
-                  stock.setCashText(e.target.value);
-                  setCashError('');
-                }}
-                spellCheck={false}
-                rows={2}
-                disabled={loading}
-              />
-            </label>
             <div>
-              <Button size="sm" variant="secondary" onClick={handleApplyCash} disabled={loading}>
-                Áp dụng danh sách loại trừ
-              </Button>
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <span className="eyebrow">Cash ETFs (loại khỏi bảng)</span>
+                <span className="text-[11px] text-fg-faint">
+                  {excluded.length} mã · mạng tính như tiền mặt
+                </span>
+              </div>
+              <p className="break-all font-mono text-code leading-relaxed text-fg-muted">
+                {loading ? '…' : status === 'error' ? '—' : JSON.stringify(excluded)}
+              </p>
             </div>
           </div>
         </div>
