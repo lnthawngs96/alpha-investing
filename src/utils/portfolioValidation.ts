@@ -1,5 +1,6 @@
 import type { DedupeCheck, DedupeConflict, Portfolio, PortfolioValidation, SavedPortfolioRecord, WeightMap } from '@/types';
 import { ALLOC_EPSILON, DD_TRIGGER, MAX_TOTAL_ALLOC, TAO_ALPHA_ASSET_CLASS } from '@/constants/portfolio';
+import { US_STOCK_ASSET_CLASS } from '@/constants/assets';
 
 /**
  * Kiểm tra hợp lệ theo luật Tao/Alpha và cơ chế dedupe của Subnet 88.
@@ -71,6 +72,52 @@ export function validateTaoAlphaPortfolio(portfolio: unknown): PortfolioValidati
 
   const cash = Math.max(0, +(MAX_TOTAL_ALLOC - total).toFixed(6));
   return { valid: errors.length === 0, errors, total: +total.toFixed(6), cash };
+}
+
+/**
+ * Kiểm tra một danh mục cổ phiếu Mỹ (`'_': 1`):
+ *   - key là ticker (chuỗi bất kỳ; ticker không hỗ trợ / key rỗng mạng tính là cash);
+ *   - cho phép short (giá trị âm);
+ *   - tổng |phân bổ| ≤ 1.
+ */
+export function validateUsStockPortfolio(portfolio: unknown): PortfolioValidation {
+  if (!portfolio || typeof portfolio !== 'object') {
+    return { valid: false, errors: ['Danh mục không hợp lệ'], total: 0, cash: 0 };
+  }
+
+  const errors: string[] = [];
+  const record = portfolio as Record<string, unknown>;
+  if (record._ !== US_STOCK_ASSET_CLASS) {
+    errors.push(`Asset class '_' phải bằng ${US_STOCK_ASSET_CLASS} cho cổ phiếu Mỹ`);
+  }
+
+  let total = 0;
+  for (const [k, v] of Object.entries(record)) {
+    if (k === '_') continue;
+    if (typeof v !== 'number' || Number.isNaN(v)) {
+      errors.push(`Phân bổ mã ${k || '(rỗng)'} không hợp lệ`);
+    } else {
+      total += Math.abs(v);
+    }
+  }
+
+  if (total > MAX_TOTAL_ALLOC + ALLOC_EPSILON) {
+    errors.push(`Tổng |phân bổ| ${total.toFixed(6)} vượt quá 1.0`);
+  }
+
+  const cash = Math.max(0, +(MAX_TOTAL_ALLOC - total).toFixed(6));
+  return { valid: errors.length === 0, errors, total: +total.toFixed(6), cash };
+}
+
+/**
+ * Kiểm tra hợp lệ theo đúng asset class của danh mục: `'_': 1` → luật cổ phiếu
+ * Mỹ, còn lại → luật Tao/Alpha (giữ nguyên hành vi cũ).
+ */
+export function validatePortfolio(portfolio: unknown): PortfolioValidation {
+  if (portfolio && typeof portfolio === 'object' && (portfolio as Record<string, unknown>)._ === US_STOCK_ASSET_CLASS) {
+    return validateUsStockPortfolio(portfolio);
+  }
+  return validateTaoAlphaPortfolio(portfolio);
 }
 
 /** Vector phân bổ đã chuẩn hoá L1 (chỉ subnet, bỏ '_' và cash) — giống fn() trong dist(). */

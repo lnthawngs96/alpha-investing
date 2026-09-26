@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import type { SubnetRow } from '@/types';
-import { EMISSION_FIELD, LIQUIDITY_FIELD } from '@/constants/portfolio';
+import type { AssetProfile, SubnetRow, TierConfig } from '@/types';
 import type { TierKey } from '@/constants/tiers';
+import { useAssetProfile } from '@/store/asset/context';
 import { buildRankIndex } from '@/utils/subnetData';
 
 /** Kết quả phân loại một subnet. */
@@ -25,16 +25,25 @@ export interface SubnetTiers {
   topLiquidityN: number;
   classify: (netuid: string | number) => SubnetClassification;
   summarize: (entries: Array<[string, number]>) => TierStats;
+  /** Nhãn / màu của từng nhóm theo mục đầu tư đang xem. */
+  config: Readonly<Record<TierKey, TierConfig>>;
+  /** Tên hai tiêu chí phân loại (vd "emission" / "thanh khoản"). */
+  names: AssetProfile['tierNames'];
+  /** Đơn vị đếm (vd "subnet", "mã"). */
+  unit: string;
 }
 
 /**
  * Xếp hạng subnet theo emission / thanh khoản từ data table đang nạp (không
  * phải từ giá lúc lưu danh mục) và phân loại từng subnet trong danh mục:
  * both | emission | liquidity | none theo ngưỡng top N người dùng đặt.
+ * Cổ phiếu Mỹ dùng cùng cơ chế với vốn hoá (mc) / giá trị giao dịch (pv) — xem AssetProfile.tierFields.
  */
 export function useSubnetTiers(currentData: SubnetRow[], topEmissionN: number, topLiquidityN: number): SubnetTiers {
-  const emissionRanks = useMemo(() => buildRankIndex(currentData, EMISSION_FIELD), [currentData]);
-  const liquidityRanks = useMemo(() => buildRankIndex(currentData, LIQUIDITY_FIELD), [currentData]);
+  const profile = useAssetProfile();
+  const { primary, secondary } = profile.tierFields;
+  const emissionRanks = useMemo(() => buildRankIndex(currentData, primary), [currentData, primary]);
+  const liquidityRanks = useMemo(() => buildRankIndex(currentData, secondary), [currentData, secondary]);
   const canRank = emissionRanks.size > 0 || liquidityRanks.size > 0;
 
   // Phân loại một subnet: thứ hạng emission / thanh khoản + nhóm.
@@ -70,5 +79,16 @@ export function useSubnetTiers(currentData: SubnetRow[], topEmissionN: number, t
     [classify]
   );
 
-  return { emissionRanks, liquidityRanks, canRank, topEmissionN, topLiquidityN, classify, summarize };
+  return {
+    emissionRanks,
+    liquidityRanks,
+    canRank,
+    topEmissionN,
+    topLiquidityN,
+    classify,
+    summarize,
+    config: profile.tiers,
+    names: profile.tierNames,
+    unit: profile.unit,
+  };
 }

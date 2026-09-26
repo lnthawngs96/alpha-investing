@@ -97,14 +97,17 @@ export type AnyToolSpec = ToolSpec<any>;
  * Tool chỉ đăng ký lại khi DANH SÁCH TÊN đổi, không phải mỗi lần render — nếu
  * không mỗi keystroke sẽ gỡ và đăng ký lại toàn bộ tool, và agent có thể gọi
  * đúng vào khoảnh khắc tool chưa tồn tại.
+ *
+ * `schemaKey` (tuỳ chọn): đổi giá trị này để buộc đăng ký lại khi description /
+ * inputSchema thay đổi mà danh sách tên giữ nguyên (vd đổi mục đầu tư).
  */
-export function useWebMCPTools(specs: AnyToolSpec[]): void {
+export function useWebMCPTools(specs: AnyToolSpec[], schemaKey = ''): void {
   const specsRef = useRef<AnyToolSpec[]>(specs);
   useEffect(() => {
     specsRef.current = specs;
   });
 
-  const signature = specs.map((s) => s.name).join('|');
+  const signature = specs.map((s) => s.name).join('|') + (schemaKey ? `#${schemaKey}` : '');
 
   useEffect(() => {
     const mc = getModelContext();

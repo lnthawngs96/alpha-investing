@@ -6,9 +6,11 @@ import { toNumber } from '@/utils/numeric';
 import { sanitizeNumericText } from '@/utils/numeric';
 import { buildNormalizedPortfolio } from '@/utils/portfolioMath';
 import { formatPortfolioJson } from '@/utils/portfolioJson';
-import { portfolioEntriesDesc, validateTaoAlphaPortfolio } from '@/utils/portfolioValidation';
+import { portfolioEntriesDesc, validatePortfolio } from '@/utils/portfolioValidation';
 import { findSubnet } from '@/utils/subnetData';
 import { cn } from '@/utils/classNames';
+import { formatAssetId } from '@/constants/assets';
+import { useAssetProfile } from '@/store/asset/context';
 import { Button, Card, Eyebrow } from '@/components/ui';
 import { BookmarkIcon, CheckIcon, CopyIcon, PencilIcon, RefreshIcon, XIcon } from '@/components/icons';
 
@@ -39,11 +41,12 @@ export function PortfolioResult({
   onApplyEdit,
   onSave,
 }: PortfolioResultProps) {
+  const profile = useAssetProfile();
   const [copied, setCopied] = useState(false);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const entries = portfolioEntriesDesc(portfolio);
-  const { valid, errors, total, cash } = validateTaoAlphaPortfolio(portfolio);
+  const { valid, errors, total, cash } = validatePortfolio(portfolio);
   const json = formatPortfolioJson(portfolio);
 
   function handleCopy() {
@@ -62,7 +65,7 @@ export function PortfolioResult({
       const v = el ? parseFloat(el.value) : portfolio[id] * 100;
       return isNaN(v) ? 0 : Math.max(0, v);
     });
-    onApplyEdit(buildNormalizedPortfolio(netuids, vals));
+    onApplyEdit(buildNormalizedPortfolio(netuids, vals, portfolio._ ?? profile.assetClass));
   }
 
   return (
@@ -79,7 +82,7 @@ export function PortfolioResult({
             {cash > 0 && <span className="text-fg-faint"> · Cash: {cash.toFixed(6)}</span>}
             <span className={cn('ml-2 inline-flex items-center gap-1', valid ? 'text-positive' : 'text-negative')}>
               {valid ? <CheckIcon size={12} strokeWidth={2.5} /> : <XIcon size={12} strokeWidth={2.5} />}
-              {valid ? 'Hợp lệ (Tao/Alpha)' : 'Không hợp lệ'}
+              {valid ? `Hợp lệ (${profile.ruleLabel})` : 'Không hợp lệ'}
             </span>
           </div>
           {!valid && (
@@ -131,7 +134,7 @@ export function PortfolioResult({
           return (
             <div key={netuid} className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3">
-                <span className="min-w-[36px] font-mono text-xs font-bold text-accent">#{netuid}</span>
+                <span className="min-w-[36px] font-mono text-xs font-bold text-accent">{formatAssetId(profile, netuid)}</span>
                 <span className="flex-1 truncate text-xs text-fg">{s?.name || 'Unknown'}</span>
                 {!isNaN(metric) && (
                   <span

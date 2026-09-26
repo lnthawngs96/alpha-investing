@@ -33,7 +33,13 @@ export type MetricKey =
   /** Lọc subnet có fear_and_greed_index trong vùng Fear (gồm Extreme Fear). */
   | 'fear_and_greed_fear'
   /** Lọc subnet có fear_and_greed_index trong vùng Neutral. */
-  | 'fear_and_greed_neutral';
+  | 'fear_and_greed_neutral'
+  /** Cổ phiếu Mỹ: vốn hoá thị trường. */
+  | 'mc'
+  /** Cổ phiếu Mỹ: giá trị giao dịch (price × volume). */
+  | 'pv'
+  /** Cổ phiếu Mỹ: khối lượng giao dịch. */
+  | 'volume';
 
 /** Một lựa chọn trong dropdown tiêu chí. */
 export interface MetricOption {

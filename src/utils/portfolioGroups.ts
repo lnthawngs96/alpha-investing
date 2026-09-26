@@ -1,5 +1,6 @@
 import type { GroupKey, MetricKey, SavedPortfolioRecord, Selection, SelectionGroup, SubnetRow } from '@/types';
 import { CHANGE_OPTIONS, OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
+import { STOCK_CHANGE_OPTIONS } from '@/constants/assets';
 import { compareByMetricDesc, getMetricValue, getSubnetPool } from './subnetData';
 
 /**
@@ -27,7 +28,11 @@ export function primaryChangeKey(selection: Pick<Selection, 'changeKey' | 'chang
 /** Label một chỉ số; fallback về chính key nếu không tìm thấy. */
 export function metricLabel(changeKey: string): string {
   if (changeKey === OTHER_GROUP_KEY) return OTHER_GROUP_LABEL;
-  return CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label || changeKey;
+  return (
+    CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label ||
+    STOCK_CHANGE_OPTIONS.find((o) => o.value === changeKey)?.label ||
+    changeKey
+  );
 }
 
 /** Label gộp nhiều chỉ số: "A + B + C". */

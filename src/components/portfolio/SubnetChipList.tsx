@@ -2,6 +2,8 @@ import type { SubnetRow } from '@/types';
 import { formatMetric } from '@/utils/format';
 import { toNumber } from '@/utils/numeric';
 import { cn } from '@/utils/classNames';
+import { formatAssetId } from '@/constants/assets';
+import { useAssetProfile } from '@/store/asset/context';
 
 export interface SubnetChipListProps {
   subnets: SubnetRow[];
@@ -12,6 +14,7 @@ export interface SubnetChipListProps {
 
 /** Danh sách chip subnet (#id · tên · chỉ số), xuất hiện lần lượt (stagger). */
 export function SubnetChipList({ subnets, metricField, className }: SubnetChipListProps) {
+  const profile = useAssetProfile();
   return (
     <div className={className || 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto'}>
       {subnets.map((s, i) => {
@@ -23,7 +26,7 @@ export function SubnetChipList({ subnets, metricField, className }: SubnetChipLi
             className="flex items-center gap-3 rounded-lg border border-line bg-surface-raised px-3 py-2 transition-colors duration-200 hover:border-accent/50 animate-slide-up"
             style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}
           >
-            <span className="min-w-[36px] font-mono text-xs font-bold text-accent">#{s.netuid}</span>
+            <span className="min-w-[36px] font-mono text-xs font-bold text-accent">{formatAssetId(profile, s.netuid)}</span>
             <span className="flex-1 truncate text-xs text-fg">{s.name || 'Unknown'}</span>
             {hasVal && (
               <span

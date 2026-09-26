@@ -5,6 +5,7 @@ import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { groupLabel, primaryChangeKey, resolvePortfolioGroups } from '@/utils/portfolioGroups';
 import { findSubnet } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
+import { useAssetProfile } from '@/store/asset/context';
 import { TierSummaryPanel } from './TierSummaryPanel';
 import { RemovedSubnetsPanel } from './RemovedSubnetsPanel';
 import { AddSubnetsPanel } from './AddSubnetsPanel';
@@ -28,6 +29,7 @@ export interface SavedPortfolioDetailProps {
  * Mọi số liệu hiển thị được suy ra ở đây từ bản nháp (khi sửa) hoặc bản đã lưu.
  */
 export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, editor }: SavedPortfolioDetailProps) {
+  const { unit } = useAssetProfile();
   const isEditingWeights = editor.editingWeightsIdx === idx;
   const isEditingJson = editor.editingJsonIdx === idx;
 
@@ -96,7 +98,7 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
   if (!sections.length && rowsData.length) {
     sections.push({
       changeKey: OTHER_GROUP_KEY,
-      label: 'Tất cả subnet',
+      label: `Tất cả ${unit}`,
       netuids: rowsData.map((r) => r.netuid),
       rows: rowsData,
     });
@@ -122,7 +124,12 @@ export function SavedPortfolioDetail({ idx, saved, entries, currentData, tiers, 
       {/* Left: detail table */}
       <div className="show-scrollbar overflow-y-auto border-r border-line p-4">
         {tierStats && (
-          <TierSummaryPanel stats={tierStats} topEmissionN={tiers.topEmissionN} topLiquidityN={tiers.topLiquidityN} />
+          <TierSummaryPanel
+            stats={tierStats}
+            topEmissionN={tiers.topEmissionN}
+            topLiquidityN={tiers.topLiquidityN}
+            tiers={tiers}
+          />
         )}
         {hasRemoved && draft && (
           <RemovedSubnetsPanel

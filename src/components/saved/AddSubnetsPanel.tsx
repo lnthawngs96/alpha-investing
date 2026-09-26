@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { MetricKey, WeightMap } from '@/types';
-import { CHANGE_OPTIONS } from '@/constants/portfolio';
+import { formatAssetId } from '@/constants/assets';
 import { MAX_ADD_TAKE_PCT, type SplitMode } from '@/constants/editor';
 import type { AllocateResult } from '@/utils/portfolioMath';
 import type { AddCandidate, DraftPatch } from '@/hooks/useSavedPortfolioEditor';
@@ -10,6 +10,7 @@ import { formatMetric } from '@/utils/format';
 import { ensureMetricKeys, metricsLabel } from '@/utils/portfolioGroups';
 import { Button, NumericTextInput, Select } from '@/components/ui';
 import { PlusIcon } from '@/components/icons';
+import { useAssetProfile } from '@/store/asset/context';
 import { TierCell } from './TierBadge';
 
 export interface AddSubnetsPanelProps {
@@ -57,6 +58,8 @@ export function AddSubnetsPanel({
   onToggleCandidate,
   onClearCandidates,
 }: AddSubnetsPanelProps) {
+  const profile = useAssetProfile();
+  const { unit } = profile;
   const overrideCount = Object.keys(addOverrides).length;
   const visible = candidates.slice(0, candidateLimit);
   const displayKey = addChangeKeys[0];
@@ -74,11 +77,11 @@ export function AddSubnetsPanel({
     <div className="mb-3 flex flex-col gap-2 rounded-lg border border-info/60 bg-info/10 p-3 text-xs animate-slide-down">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wider text-info">
-          <PlusIcon size={13} strokeWidth={2.5} /> Thêm subnet tăng trưởng
+          <PlusIcon size={13} strokeWidth={2.5} /> Thêm {unit}{profile.key === 'alpha' ? ' tăng trưởng' : ''}
         </span>
         <label
           className="flex items-center gap-1 text-fg"
-          title="Mỗi subnet trong top lớn nhất nhả ra bấy nhiêu % TỶ TRỌNG CỦA CHÍNH NÓ (vd 10% của 4% = 0.4%)"
+          title={`Mỗi ${unit} trong top lớn nhất nhả ra bấy nhiêu % TỶ TRỌNG CỦA CHÍNH NÓ (vd 10% của 4% = 0.4%)`}
         >
           lấy
           <NumericTextInput
@@ -93,9 +96,9 @@ export function AddSubnetsPanel({
             onValue={(n) => onApplyDraft({ topN: Math.max(0, n) })}
             className="w-14 px-1.5 py-1 text-right focus:border-info"
           />
-          subnet lớn nhất
+          {unit} lớn nhất
         </label>
-        <label className="flex items-center gap-1 text-fg" title="Cách chia phần lấy được cho các subnet mới">
+        <label className="flex items-center gap-1 text-fg" title={`Cách chia phần lấy được cho các ${unit} mới`}>
           chia
           <Select value={addSplitMode} onChange={(e) => onApplyDraft({ splitMode: e.target.value as SplitMode })}>
             <option value="decreasing">giảm dần (cao → thấp)</option>
@@ -109,7 +112,7 @@ export function AddSubnetsPanel({
           Tiêu chí xếp hạng · {metricsLabel(addChangeKeys)}
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
-          {CHANGE_OPTIONS.map((opt) => {
+          {profile.metricOptions.map((opt) => {
             const checked = addChangeKeys.includes(opt.value);
             return (
               <label
@@ -134,9 +137,9 @@ export function AddSubnetsPanel({
 
       {addedIds.length > 0 ? (
         <div className="text-fg">
-          Đã chọn <b className="text-info">{addedIds.length} subnet mới</b> · lấy{' '}
+          Đã chọn <b className="text-info">{addedIds.length} {unit} mới</b> · lấy{' '}
           <b className="tabular-nums text-info">{addition.pool.toFixed(4)}%</b> từ {Object.keys(addition.taken).length}{' '}
-          subnet lớn nhất
+          {unit} lớn nhất
           {addSplitMode === 'decreasing' ? (
             <>
               {' '}
@@ -150,30 +153,30 @@ export function AddSubnetsPanel({
           ) : (
             <>
               {' '}
-              · mỗi subnet <b className="tabular-nums text-fg">{(addition.shares[addedIds[0]] ?? 0).toFixed(4)}%</b>.
+              · mỗi {unit} <b className="tabular-nums text-fg">{(addition.shares[addedIds[0]] ?? 0).toFixed(4)}%</b>.
             </>
           )}
           {overrideCount > 0 && (
-            <span className="text-warning"> ({overrideCount} subnet đã sửa tay — giữ nguyên số bạn nhập.)</span>
+            <span className="text-warning"> ({overrideCount} {unit} đã sửa tay — giữ nguyên số bạn nhập.)</span>
           )}
         </div>
       ) : (
         <div className="text-fg-muted">
-          Tick subnet bên dưới để thêm vào danh mục — tỷ trọng của chúng được trích từ {addTakePct}% tỷ trọng của
-          mỗi subnet trong top {addTopN} lớn nhất, phần còn lại của danh mục giữ nguyên tỷ lệ.
+          Tick {unit} bên dưới để thêm vào danh mục — tỷ trọng của chúng được trích từ {addTakePct}% tỷ trọng của
+          mỗi {unit} trong top {addTopN} lớn nhất, phần còn lại của danh mục giữ nguyên tỷ lệ.
         </div>
       )}
 
       {!candidates.length ? (
         <div className="text-warning">
           {hasData
-            ? 'Mọi subnet trong data table đều đã có trong danh mục này.'
+            ? `Mọi ${unit} trong data table đều đã có trong danh mục này.`
             : '⚠ Chưa nạp DATA TABLE → không có ứng viên để thêm.'}
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-fg-muted">{candidates.length} subnet chưa có trong danh mục · hiện</span>
+            <span className="text-fg-muted">{candidates.length} {unit} chưa có trong danh mục · hiện</span>
             <NumericTextInput
               integer
               value={candidateLimit}
@@ -184,11 +187,11 @@ export function AddSubnetsPanel({
               size="xs"
               variant="secondary"
               icon={<PlusIcon size={11} strokeWidth={2.5} />}
-              title={`Thêm nhanh ${candidateLimit} subnet tăng mạnh nhất đang hiển thị`}
+              title={`Thêm nhanh ${candidateLimit} ${unit} ${profile.key === 'alpha' ? 'tăng mạnh nhất' : 'đứng đầu'} đang hiển thị`}
               onClick={() => onPickCandidates(visible.map((c) => c.netuid))}
               className="hover:border-info hover:text-info"
             >
-              Thêm {Math.min(candidateLimit, candidates.length)} subnet đầu
+              Thêm {Math.min(candidateLimit, candidates.length)} {unit} đầu
             </Button>
             <Button
               size="xs"
@@ -212,7 +215,7 @@ export function AddSubnetsPanel({
                       checked={picked}
                       onChange={() => onToggleCandidate(c.netuid)}
                     />
-                    <span className="font-mono font-bold text-accent">#{c.netuid}</span>
+                    <span className="font-mono font-bold text-accent">{formatAssetId(profile, c.netuid)}</span>
                     <span className="truncate text-fg" title={c.name}>
                       {c.name}
                     </span>

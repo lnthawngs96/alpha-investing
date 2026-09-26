@@ -1,6 +1,6 @@
-import type { Portfolio, SavedPortfolioRecord } from '@/types';
+import type { AssetProfile, Portfolio, SavedPortfolioRecord } from '@/types';
 import { DD_TRIGGER, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
-import { checkDedupe, portfolioEntriesDesc, validateTaoAlphaPortfolio } from '@/utils/portfolioValidation';
+import { checkDedupe, portfolioEntriesDesc, validatePortfolio } from '@/utils/portfolioValidation';
 
 /**
  * Báo cáo trạng thái danh mục trả về cho agent.
@@ -24,7 +24,8 @@ export interface PortfolioReport {
     recommended_min_distance: number;
     conflicts: ReturnType<typeof checkDedupe>['conflicts'];
   };
-  allocations: Array<{ netuid: number; name?: string; weight: number; percent: number }>;
+  /** `netuid` là số với alpha, là ticker (chuỗi) với cổ phiếu Mỹ. */
+  allocations: Array<{ netuid: number | string; name?: string; weight: number; percent: number }>;
 }
 
 export interface EmptyPortfolioReport {
@@ -44,7 +45,7 @@ export function describePortfolio(
 ): PortfolioReport | EmptyPortfolioReport {
   if (!portfolio) return { portfolio: null, message: 'Chưa có danh mục nào được tạo.' };
 
-  const validation = validateTaoAlphaPortfolio(portfolio);
+  const validation = validatePortfolio(portfolio);
   const dedupe = checkDedupe(portfolio, savedPortfolios);
   const entries = portfolioEntriesDesc(portfolio);
 
@@ -62,10 +63,26 @@ export function describePortfolio(
       conflicts: dedupe.conflicts,
     },
     allocations: entries.map(([netuid, weight]) => ({
-      netuid: Number(netuid),
+      netuid: /^\d+$/.test(netuid) ? Number(netuid) : netuid,
       name: names[netuid] || undefined,
       weight: +Number(weight).toFixed(6),
       percent: +(Number(weight) * 100).toFixed(3),
     })),
   };
+}
+
+/**
+ * Đổi văn bản mô tả / lỗi của tool (viết cho alpha) sang ngữ cảnh cổ phiếu Mỹ:
+ * subnet → mã cổ phiếu, netuid → ticker, Tao/Alpha → cổ phiếu Mỹ, thanh khoản → vốn hoá.
+ * Alpha trả nguyên văn — mô tả tool alpha không đổi.
+ */
+export function localizeForAsset(profile: AssetProfile, text: string): string {
+  if (profile.key === 'alpha') return text;
+  return text
+    .replace(/Subnet (?!88)/g, 'Mã ')
+    .replace(/\bsubnet\b/g, 'mã cổ phiếu')
+    .replace(/Netuid/g, 'Ticker')
+    .replace(/\bnetuid\b/g, 'ticker')
+    .replace(/luật Tao\/Alpha/g, 'luật cổ phiếu Mỹ')
+    .replace(/thanh khoản/g, profile.weightLabel);
 }

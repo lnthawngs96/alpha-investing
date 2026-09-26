@@ -67,9 +67,13 @@ export function normalizeToOne(weights: WeightMap): WeightMap {
  * Dựng portfolio từ danh sách netuid + mảng giá trị đã chuẩn hoá (theo cùng thứ tự).
  * Dùng cho editor: người dùng gõ % → normalize → portfolio { _: 0, ... }.
  */
-export function buildNormalizedPortfolio(netuids: string[], rawValues: number[]): Portfolio {
+export function buildNormalizedPortfolio(
+  netuids: string[],
+  rawValues: number[],
+  assetClass = TAO_ALPHA_ASSET_CLASS
+): Portfolio {
   const norm = normalize(rawValues);
-  const portfolio: Portfolio = { _: 0 };
+  const portfolio: Portfolio = { _: assetClass };
   netuids.forEach((id, i) => {
     portfolio[id] = norm[i];
   });
@@ -195,6 +199,11 @@ function validNonRootSubnets(subnets: SubnetRow[] | null | undefined): SubnetRow
   return (subnets || []).filter((s) => /^\d+$/.test(String(s.netuid)) && Number(s.netuid) !== 0);
 }
 
+/** Cổ phiếu Mỹ: định danh (`netuid` = ticker) phải là chuỗi không rỗng. */
+function validTickers(rows: SubnetRow[] | null | undefined): SubnetRow[] {
+  return (rows || []).filter((s) => String(s.netuid ?? '').trim() !== '');
+}
+
 /**
  * Tạo portfolio phân bổ giảm dần đều (cấp số cộng) theo rank emission.
  * Subnet emission cao nhất → weight lớn nhất; chênh lệch giữa mọi cặp liền kề = 1/sumRanks.
@@ -231,15 +240,19 @@ export function generateDecreasingPortfolio(subnets: SubnetRow[]): Portfolio | n
  *   - Sàn value thấp nhất > 0 (giữ margin): step ≤ 0.9 * equal / mid.
  * step = min của hai ràng buộc → vừa "không cách nhau quá xa" vừa cap ≤ maxWeight.
  * Khi n nhỏ tới mức equal ≥ maxWeight (n ≲ 20) thì không thể vừa giảm dần vừa cap → fallback chia đều.
+ *
+ * `assetClass` = 1 (cổ phiếu Mỹ): key là ticker thay vì netuid, cùng công thức (thứ tự
+ * đầu vào do phía gọi quyết định, vd sắp xếp theo vốn hoá).
  */
 export function generateLiquidityWeightedPortfolio(
   subnets: SubnetRow[] | null | undefined,
-  maxWeight = LIQUIDITY_MAX_WEIGHT
+  maxWeight = LIQUIDITY_MAX_WEIGHT,
+  assetClass = TAO_ALPHA_ASSET_CLASS
 ): Portfolio | null {
-  const valid = validNonRootSubnets(subnets);
+  const valid = assetClass === TAO_ALPHA_ASSET_CLASS ? validNonRootSubnets(subnets) : validTickers(subnets);
   const n = valid.length;
   if (!n) return null;
-  if (n === 1) return { _: 0, [String(valid[0].netuid)]: 1 };
+  if (n === 1) return { _: assetClass, [String(valid[0].netuid)]: 1 };
 
   const equal = 1 / n;
   const mid = (n - 1) / 2;
@@ -254,7 +267,7 @@ export function generateLiquidityWeightedPortfolio(
   const midIdx = Math.floor(n / 2);
   raw[midIdx] = +(raw[midIdx] + diff).toFixed(6);
 
-  const portfolio: Portfolio = { _: 0 };
+  const portfolio: Portfolio = { _: assetClass };
   valid.forEach((s, i) => {
     portfolio[String(s.netuid)] = raw[i];
   });

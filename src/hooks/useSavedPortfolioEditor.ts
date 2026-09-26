@@ -8,7 +8,7 @@ import type {
   SubnetRow,
   WeightMap,
 } from '@/types';
-import { DD_TRIGGER, DEDUPE_SAFE_MARGIN, OTHER_GROUP_KEY, OTHER_GROUP_LABEL, CHANGE_DEFAULT } from '@/constants/portfolio';
+import { DD_TRIGGER, DEDUPE_SAFE_MARGIN, OTHER_GROUP_KEY, OTHER_GROUP_LABEL } from '@/constants/portfolio';
 import {
   DEFAULT_ADD_TAKE_PCT,
   DEFAULT_ADD_TOP_N,
@@ -28,7 +28,7 @@ import {
   type AllocateResult,
   type RedistributeResult,
 } from '@/utils/portfolioMath';
-import { checkDedupe, dedupeDistance, validateTaoAlphaPortfolio } from '@/utils/portfolioValidation';
+import { checkDedupe, dedupeDistance, validatePortfolio } from '@/utils/portfolioValidation';
 import {
   bestMetricValue,
   cloneGroupWithLabel,
@@ -42,6 +42,7 @@ import {
 } from '@/utils/portfolioGroups';
 import { formatPortfolioJson, parseRelaxedPortfolioJson } from '@/utils/portfolioJson';
 import { findSubnet, isRootSubnet } from '@/utils/subnetData';
+import { useAssetProfile } from '@/store/asset/context';
 
 /** Ứng viên để thêm vào danh mục đang sửa. */
 export interface AddCandidate {
@@ -86,6 +87,7 @@ export interface SavedPortfolioEditorDeps {
  * đổi tên (editingIdx), sửa tỷ trọng (editingWeightsIdx), sửa JSON (editingJsonIdx).
  */
 export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onUpdate, onRename }: SavedPortfolioEditorDeps) {
+  const { unit } = useAssetProfile();
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [rebalanceMsgs, setRebalanceMsgs] = useState<Record<number, StatusMessage>>({});
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -398,7 +400,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
   function assignIdsToDraftGroup(ids: string[], keys: MetricKey[]) {
     const incoming = [...new Set(ids.map(String))];
     if (!incoming.length) return;
-    const changeKeys = ensureMetricKeys(keys, CHANGE_DEFAULT);
+    const changeKeys = ensureMetricKeys(keys, filterKey);
     setDraftGroups((gs) => {
       const without = gs.map((g) => ({
         ...g,
@@ -434,7 +436,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
    * luôn khớp với tiêu chí đang xem.
    */
   function changeAddChangeKeys(keys: MetricKey[]) {
-    const next = ensureMetricKeys(keys, CHANGE_DEFAULT);
+    const next = ensureMetricKeys(keys, filterKey);
     setAddChangeKeys(next);
     applyDraft({ added: sortIdsByChange(addedIds, next) });
   }
@@ -463,7 +465,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
   function applyWeightEdits(idx: number, saved: SavedPortfolioRecord) {
     const netuids = Object.keys(weightDrafts);
     if (!netuids.length) {
-      flashMessage(idx, { ok: false, text: 'Danh mục phải có ít nhất 1 subnet' }, 2500);
+      flashMessage(idx, { ok: false, text: `Danh mục phải có ít nhất 1 ${unit}` }, 2500);
       return;
     }
     // Chuẩn hoá tổng về 1.0 (giống editor khi generate) để luôn hợp lệ Tao/Alpha.
@@ -471,9 +473,9 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       const v = parseFloat(weightDrafts[id]);
       return isNaN(v) ? 0 : Math.max(0, v);
     });
-    const newPortfolio = buildNormalizedPortfolio(netuids, vals);
+    const newPortfolio = buildNormalizedPortfolio(netuids, vals, saved.portfolio?._ ?? 0);
 
-    const { valid, errors } = validateTaoAlphaPortfolio(newPortfolio);
+    const { valid, errors } = validatePortfolio(newPortfolio);
     if (!valid) {
       flashMessage(idx, { ok: false, text: errors[0] }, 2500);
       return;
@@ -536,7 +538,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       idx,
       {
         ok: true,
-        text: `✓ Đã cập nhật tỷ trọng${addedCount ? ` · thêm ${addedCount} subnet mới` : ''} (d=${dup.minDist ?? '—'})`,
+        text: `✓ Đã cập nhật tỷ trọng${addedCount ? ` · thêm ${addedCount} ${unit} mới` : ''} (d=${dup.minDist ?? '—'})`,
       },
       2500
     );
@@ -566,7 +568,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
     }
     const { portfolio } = parsed;
 
-    const { valid, errors } = validateTaoAlphaPortfolio(portfolio);
+    const { valid, errors } = validatePortfolio(portfolio);
     if (!valid) {
       setErr(errors[0]);
       return;
@@ -621,7 +623,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
       target,
       dedupeDistance
     );
-    const { valid, errors } = validateTaoAlphaPortfolio(newPortfolio);
+    const { valid, errors } = validatePortfolio(newPortfolio);
     let message: StatusMessage;
     if (!valid) {
       message = { ok: false, text: errors[0] };
@@ -631,7 +633,7 @@ export function useSavedPortfolioEditor({ savedList, currentData, filterKey, onU
         ok: false,
         text:
           `⚠ Không tách đủ xa khỏi danh mục khác (d=${minDist ?? '—'} < ${target.toFixed(3)}). ` +
-          `Danh mục 1 subnet không thể thoát dedupe bằng đổi tỷ trọng — hãy đổi/thêm subnet. Chưa lưu.`,
+          `Danh mục 1 ${unit} không thể thoát dedupe bằng đổi tỷ trọng — hãy đổi/thêm ${unit}. Chưa lưu.`,
       };
     } else {
       onUpdate(idx, newPortfolio);

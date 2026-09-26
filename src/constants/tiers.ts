@@ -1,19 +1,13 @@
+import type { TierConfig } from '@/types';
+
 /**
  * Phân loại một subnet trong danh mục đã lưu theo data table hiện tại:
  * có nằm trong top emission / top thanh khoản hay không.
+ * (Cổ phiếu Mỹ dùng cùng khoá: 'emission' ↔ top vốn hoá, 'liquidity' ↔ top giá trị giao dịch.)
  */
 export type TierKey = 'both' | 'emission' | 'liquidity' | 'none';
 
-export interface TierConfig {
-  label: string;
-  /** Ký hiệu ngắn hiển thị trên badge. */
-  chip: string;
-  hint: string;
-  /** Lớp Tailwind cho chữ. */
-  text: string;
-  /** Lớp Tailwind cho khung badge (viền + nền + chữ). */
-  box: string;
-}
+export type { TierConfig };
 
 /** Bốn nhóm phân loại một subnet, xếp theo mức độ nên giữ / nên cashout. */
 export const TIERS: Record<TierKey, TierConfig> = {
@@ -44,6 +38,30 @@ export const TIERS: Record<TierKey, TierConfig> = {
     hint: 'Không thuộc top emission lẫn top thanh khoản — ưu tiên cashout',
     text: 'text-negative',
     box: 'border-negative/60 bg-negative/10 text-negative',
+  },
+};
+
+/** Bốn nhóm phân loại một mã cổ phiếu Mỹ: top vốn hoá (mc) / top giá trị giao dịch (pv). */
+export const STOCK_TIERS: Record<TierKey, TierConfig> = {
+  both: {
+    ...TIERS.both,
+    label: 'Cả hai',
+    hint: 'Vừa top vốn hoá vừa top giá trị giao dịch — nên giữ / gia tăng',
+  },
+  emission: {
+    ...TIERS.emission,
+    label: 'Chỉ vốn hoá',
+    hint: 'Top vốn hoá nhưng giá trị giao dịch thấp — vào/ra dễ bị slippage',
+  },
+  liquidity: {
+    ...TIERS.liquidity,
+    label: 'Chỉ thanh khoản',
+    hint: 'Giá trị giao dịch cao (dễ cashout) nhưng vốn hoá ngoài top',
+  },
+  none: {
+    ...TIERS.none,
+    label: 'Ngoài top',
+    hint: 'Không thuộc top vốn hoá lẫn top giá trị giao dịch — ưu tiên cashout',
   },
 };
 

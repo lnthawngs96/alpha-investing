@@ -11,6 +11,7 @@ import { formatSavedAt } from '@/utils/format';
 import { cn } from '@/utils/classNames';
 import { Button, Card, EmptyState, Eyebrow } from '@/components/ui';
 import { BookmarkIcon, DownloadIcon, DropletIcon, ScaleIcon, UploadIcon, ZapIcon } from '@/components/icons';
+import { useAssetProfile } from '@/store/asset/context';
 import { DedupeReportPanel, type DedupePair, type DedupeReport } from './DedupeReportPanel';
 import { SavedPortfolioCard } from './SavedPortfolioCard';
 
@@ -23,6 +24,11 @@ export interface SavedPortfoliosProps {
   onUpdate: (idx: number, portfolio: Portfolio, extra?: UpdateSavedExtra | null) => void;
   onRename: (idx: number, name: string) => void;
   onImport: (records: SavedPortfolioRecord[]) => ImportResult;
+  /**
+   * Danh sách ghi ra file khi bấm Xuất JSON. Mặc định = savedList; App truyền toàn bộ
+   * store (mọi mục đầu tư) để file sao lưu không bị thiếu khi đang xem một mục.
+   */
+  exportList?: SavedPortfolioRecord[];
 }
 
 /**
@@ -38,7 +44,9 @@ export function SavedPortfolios({
   onUpdate,
   onRename,
   onImport,
+  exportList = savedList,
 }: SavedPortfoliosProps) {
+  const { tierNames: names, key: assetKey } = useAssetProfile();
   // Kết quả xuất/nhập file.
   const [fileMsg, setFileMsg] = useState<StatusMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,8 +93,8 @@ export function SavedPortfolios({
 
   function handleExport() {
     try {
-      const name = downloadPortfolios(savedList);
-      showFileMsg(true, `✓ Đã xuất ${savedList.length} danh mục → ${name}`);
+      const name = downloadPortfolios(exportList);
+      showFileMsg(true, `✓ Đã xuất ${exportList.length} danh mục → ${name}`);
     } catch {
       showFileMsg(false, '⚠ Không xuất được file');
     }
@@ -129,7 +137,7 @@ export function SavedPortfolios({
         variant="secondary"
         icon={<UploadIcon size={13} />}
         onClick={handleExport}
-        disabled={!savedList.length}
+        disabled={!exportList.length}
         title="Tải toàn bộ danh mục đã lưu về máy dưới dạng file JSON"
       >
         Xuất JSON
@@ -179,10 +187,10 @@ export function SavedPortfolios({
         <div className="flex flex-wrap items-center gap-2">
           <div
             className="flex items-center gap-2 rounded-lg border border-line bg-surface-raised/60 px-3 py-1.5 text-xs text-fg-muted"
-            title="Ngưỡng xếp hạng lấy từ DATA TABLE đang nạp: subnet nằm trong top N emission / top N thanh khoản mới được coi là 'top'"
+            title={`Ngưỡng xếp hạng lấy từ DATA TABLE đang nạp: ${assetKey === 'alpha' ? 'subnet' : 'mã'} nằm trong top N ${names.primary} / top N ${names.secondary} mới được coi là 'top'`}
           >
             <span className="font-bold tracking-wider">TOP</span>
-            <label className="flex cursor-pointer items-center gap-1" title="Top N theo emission">
+            <label className="flex cursor-pointer items-center gap-1" title={`Top N theo ${names.primary}`}>
               <ZapIcon size={13} className="text-warning" animated />
               <input
                 type="number"
@@ -192,7 +200,7 @@ export function SavedPortfolios({
                 className="field w-14 px-1.5 py-1 text-right font-mono focus:border-warning"
               />
             </label>
-            <label className="flex cursor-pointer items-center gap-1" title="Top N theo thanh khoản">
+            <label className="flex cursor-pointer items-center gap-1" title={`Top N theo ${names.secondary}`}>
               <DropletIcon size={13} className="text-info" animated />
               <input
                 type="number"
@@ -219,7 +227,8 @@ export function SavedPortfolios({
       {fileBanner}
       {!tiers.canRank && (
         <div className="shrink-0 px-5 pb-3 text-xs text-warning">
-          ⚠ Chưa nạp DATA TABLE → không phân loại được top emission / top thanh khoản. Paste data ở ô DATA INPUT để
+          ⚠ Chưa nạp DATA TABLE → không phân loại được top {names.primary} / top {names.secondary}.{' '}
+          {assetKey === 'alpha' ? 'Paste data ở ô DATA INPUT để' : 'Tải lại dữ liệu cổ phiếu ở ô phía trên để'}{' '}
           bật phân loại.
         </div>
       )}

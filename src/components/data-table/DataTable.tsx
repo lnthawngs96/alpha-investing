@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import type { SortDirection, SubnetRow } from '@/types';
-import { LIQUIDITY_FIELD } from '@/constants/portfolio';
 import { isPrimitive } from '@/utils/format';
 import { cn } from '@/utils/classNames';
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, SearchIcon } from '@/components/icons';
+import { useAssetProfile } from '@/store/asset/context';
 import { CellValue } from './CellValue';
 
 export interface DataTableProps {
@@ -11,16 +11,16 @@ export interface DataTableProps {
   columns: string[];
 }
 
-/** Mặc định sắp xếp theo thanh khoản giảm dần ngay sau khi import data. */
-const DEFAULT_SORT_KEY: string = LIQUIDITY_FIELD;
 
 /**
  * Bảng dữ liệu subnet: tìm kiếm toàn văn trên mọi cột, click tiêu đề để sắp xếp
  * (số so số, chuỗi so chuỗi), header dính khi cuộn.
  */
 export function DataTable({ data, columns }: DataTableProps) {
+  const profile = useAssetProfile();
   const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState<string | null>(DEFAULT_SORT_KEY);
+  // Mặc định sắp xếp giảm dần ngay sau khi import data: alpha theo thanh khoản, cổ phiếu Mỹ theo vốn hoá.
+  const [sortKey, setSortKey] = useState<string | null>(profile.defaultSortKey);
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
 
   const filteredRows = useMemo(() => {
@@ -103,7 +103,7 @@ export function DataTable({ data, columns }: DataTableProps) {
                     aria-sort={isActive ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <span className="inline-flex items-center gap-1.5">
-                      {c}
+                      {profile.columnLabels[c] ?? c}
                       {isActive ? (
                         sortDir === 'asc' ? (
                           <ArrowUpIcon size={12} className="animate-scale-in" />

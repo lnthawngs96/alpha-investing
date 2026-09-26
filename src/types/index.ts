@@ -4,3 +4,4 @@ export type * from './portfolio';
 export type * from './webmcp';
 export type * from './theme';
 export type * from './ui';
+export type * from './asset';

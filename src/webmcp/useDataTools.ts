@@ -1,14 +1,28 @@
-import type { MetricKey, SavedPortfolioRecord, SubnetRow, TabKey, WeightMap } from '@/types';
-import { DD_TRIGGER, METRIC_KEYS, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
+import type { AssetKey, MetricKey, SavedPortfolioRecord, SubnetRow, TabKey, WeightMap } from '@/types';
+import { DD_TRIGGER, SAFE_DEDUPE_DISTANCE } from '@/constants/portfolio';
+import { ASSET_KEYS, ASSET_PROFILES, profileForAssetClass } from '@/constants/assets';
 import { TAB_KEYS } from '@/constants/tabs';
 import { buildColumns, filterExcludedSubnets, getMetricValue, getTopNByChange } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { withAssetClass } from '@/utils/portfolioMath';
 import { checkDedupe } from '@/utils/portfolioValidation';
 import { useWebMCPTools, useLatest } from './useWebMCP';
-import { describePortfolio, type PortfolioReport } from './portfolioOps';
+import { describePortfolio, localizeForAsset, type PortfolioReport } from './portfolioOps';
+
+/** Kết quả tải lại bảng cổ phiếu Mỹ (xem App.reloadStockData). */
+export interface StockReloadResult {
+  total: number;
+  loaded: number;
+  cashEtfs: string[];
+}
 
 export interface DataToolsDeps {
+  /** Mục đầu tư đang xem: tool tra cứu / kiểm tra dedupe chạy trên mục này. */
+  asset: AssetKey;
+  setAsset: (asset: AssetKey) => void;
+  /** Bảng cổ phiếu Mỹ (đã loại cash ETFs). */
+  stockData: SubnetRow[];
+  reloadStockData: () => Promise<StockReloadResult>;
   allData: SubnetRow[];
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
@@ -26,6 +40,11 @@ export interface DataToolsDeps {
  */
 export function useDataTools(deps: DataToolsDeps): void {
   const state = useLatest(deps);
+  const profile = ASSET_PROFILES[deps.asset];
+  const METRIC_KEYS = profile.metricKeys;
+  const L = (text: string) => localizeForAsset(profile, text);
+  /** Bảng dữ liệu của mục đầu tư đang xem. */
+  const activeData = () => (state.current.asset === 'stock' ? state.current.stockData : state.current.allData);
 
   useWebMCPTools([
     {
@@ -63,6 +82,7 @@ export function useDataTools(deps: DataToolsDeps): void {
             })
           : [];
         state.current.onSubmitData(subnets, deregIds);
+        state.current.setAsset('alpha');
         state.current.setActiveTab('table');
         const loaded = filterExcludedSubnets(subnets, deregIds).length;
         return {
@@ -82,18 +102,26 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'get_app_state',
       description:
-        'Xem trạng thái hiện tại của app: đã nạp bao nhiêu subnet, các trường dữ liệu có sẵn, tab đang mở, số danh mục đã lưu. Gọi tool này trước khi làm gì khác để biết app đang ở đâu.',
+        'Xem trạng thái hiện tại của app: mục đầu tư đang xem (alpha / stock — cổ phiếu Mỹ), đã nạp bao nhiêu subnet và bao nhiêu mã cổ phiếu, các trường dữ liệu có sẵn của mục đang xem, tab đang mở, số danh mục đã lưu. Gọi tool này trước khi làm gì khác để biết app đang ở đâu.',
       annotations: { readOnlyHint: true },
       inputSchema: { type: 'object', properties: {} },
       execute: async () => {
-        const { allData: data, activeTab: tab, savedPortfolios: saved } = state.current;
+        const { allData, stockData, asset, activeTab: tab, savedPortfolios: saved } = state.current;
+        const data = activeData();
+        const savedInAsset = saved.filter((s) => profileForAssetClass(s.portfolio?._).key === asset).length;
         return {
-          subnets_loaded: data.length,
+          active_asset: asset,
+          subnets_loaded: allData.length,
+          stocks_loaded: stockData.length,
           available_fields: buildColumns(data),
           sortable_metrics: METRIC_KEYS,
           active_tab: tab,
           saved_portfolios: saved.length,
-          log: `Đọc trạng thái app (${data.length} subnet, tab "${tab}")`,
+          saved_portfolios_in_active_asset: savedInAsset,
+          log:
+            asset === 'alpha'
+              ? `Đọc trạng thái app (${allData.length} subnet, tab "${tab}")`
+              : `Đọc trạng thái app (cổ phiếu Mỹ: ${stockData.length} mã, tab "${tab}")`,
         };
       },
     },
@@ -101,7 +129,9 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'query_subnets',
       description:
-        'Xếp hạng các subnet đã nạp theo một chỉ số và trả về top N. Dùng để khảo sát dữ liệu trước khi quyết định tiêu chí tạo danh mục. Subnet 0 luôn bị loại.',
+        profile.key === 'alpha'
+          ? 'Xếp hạng các subnet đã nạp theo một chỉ số và trả về top N. Dùng để khảo sát dữ liệu trước khi quyết định tiêu chí tạo danh mục. Subnet 0 luôn bị loại.'
+          : 'Xếp hạng các mã cổ phiếu Mỹ đã tải (đã loại cash ETFs) theo một chỉ số và trả về top N. Dùng để khảo sát dữ liệu trước khi quyết định tiêu chí tạo danh mục.',
       annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
@@ -115,14 +145,20 @@ export function useDataTools(deps: DataToolsDeps): void {
             type: 'integer',
             minimum: 1,
             maximum: 128,
-            description: 'Số subnet trả về. Mặc định 20.',
+            description: L('Số subnet trả về. Mặc định 20.'),
           },
         },
         required: ['metric'],
       },
       execute: async ({ metric, limit = 20 }: { metric: MetricKey; limit?: number }) => {
-        const { allData: data } = state.current;
-        if (!data.length) throw new Error('Chưa có dữ liệu. Gọi load_subnet_data trước.');
+        const data = activeData();
+        if (!data.length) {
+          throw new Error(
+            profile.key === 'alpha'
+              ? 'Chưa có dữ liệu. Gọi load_subnet_data trước.'
+              : 'Chưa có dữ liệu cổ phiếu. Gọi reload_stock_data trước.'
+          );
+        }
         if (!METRIC_KEYS.includes(metric)) {
           throw new Error(`metric phải là một trong: ${METRIC_KEYS.join(', ')}`);
         }
@@ -130,14 +166,25 @@ export function useDataTools(deps: DataToolsDeps): void {
         return {
           metric,
           count: rows.length,
-          subnets: rows.map((r) => ({
-            netuid: Number(r.netuid),
-            name: r.name,
-            value: getMetricValue(r, metric),
-            price: r.price !== undefined ? toNumber(r.price) : undefined,
-            liquidity: r.liquidity !== undefined ? toNumber(r.liquidity) : undefined,
-          })),
-          log: `Truy vấn top ${rows.length} subnet theo ${metric}`,
+          subnets: rows.map((r) =>
+            profile.key === 'alpha'
+              ? {
+                  netuid: Number(r.netuid),
+                  name: r.name,
+                  value: getMetricValue(r, metric),
+                  price: r.price !== undefined ? toNumber(r.price) : undefined,
+                  liquidity: r.liquidity !== undefined ? toNumber(r.liquidity) : undefined,
+                }
+              : {
+                  ticker: String(r.netuid),
+                  name: r.name,
+                  sector: r.sector,
+                  value: getMetricValue(r, metric),
+                  price: r.price !== undefined ? toNumber(r.price) : undefined,
+                  mc: r.mc !== undefined ? toNumber(r.mc) : undefined,
+                }
+          ),
+          log: L(`Truy vấn top ${rows.length} subnet theo ${metric}`),
         };
       },
     },
@@ -161,7 +208,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'list_saved_portfolios',
       description:
-        'Liệt kê các danh mục đã lưu kèm chỉ số (index), tên, thời điểm lưu, số subnet và tổng phân bổ. Index trả về ở đây dùng cho rename_saved_portfolio và delete_saved_portfolio.',
+        'Liệt kê các danh mục đã lưu (cả alpha lẫn cổ phiếu Mỹ) kèm chỉ số (index), mục đầu tư (asset), tên, thời điểm lưu, số subnet / mã và tổng phân bổ. Index trả về ở đây dùng cho rename_saved_portfolio và delete_saved_portfolio.',
       annotations: { readOnlyHint: true },
       inputSchema: { type: 'object', properties: {} },
       execute: async () => {
@@ -172,10 +219,12 @@ export function useDataTools(deps: DataToolsDeps): void {
             const entries = Object.entries(s.portfolio || {}).filter(([k]) => k !== '_');
             return {
               index: i,
+              asset: profileForAssetClass(s.portfolio?._).key,
               name: s.name || `(chưa đặt tên) #${i}`,
               saved_at: s.savedAt,
               subnet_count: entries.length,
-              total_allocation: +entries.reduce((a, [, v]) => a + Number(v), 0).toFixed(6),
+              // Tổng |phân bổ| — cổ phiếu Mỹ có thể short (giá trị âm).
+              total_allocation: +entries.reduce((a, [, v]) => a + Math.abs(Number(v)), 0).toFixed(6),
             };
           }),
           log: `Liệt kê ${saved.length} danh mục đã lưu`,
@@ -228,7 +277,7 @@ export function useDataTools(deps: DataToolsDeps): void {
     {
       name: 'check_dedupe',
       description:
-        'Kiểm tra một bảng phân bổ bất kỳ có bị mạng Subnet 88 coi là trùng lặp với các danh mục đã lưu hay không. Khoảng cách Euclid giữa hai vector phân bổ đã chuẩn hoá L1 nhỏ hơn ngưỡng 0.01 sẽ bị phạt điểm nặng. Dùng để thẩm định một phương án trước khi áp vào danh mục đang dựng.',
+        'Kiểm tra một bảng phân bổ bất kỳ (của mục đầu tư đang xem) có bị mạng Subnet 88 coi là trùng lặp với các danh mục đã lưu cùng mục hay không. Khoảng cách Euclid giữa hai vector phân bổ đã chuẩn hoá L1 nhỏ hơn ngưỡng 0.01 sẽ bị phạt điểm nặng. Dùng để thẩm định một phương án trước khi áp vào danh mục đang dựng.',
       annotations: { readOnlyHint: true },
       inputSchema: {
         type: 'object',
@@ -236,7 +285,9 @@ export function useDataTools(deps: DataToolsDeps): void {
           allocations: {
             type: 'object',
             description:
-              'Map netuid → tỷ trọng, ví dụ { "4": 0.05, "8": 0.03 }. Tỷ trọng là phân số, tổng ≤ 1.',
+              profile.key === 'alpha'
+                ? 'Map netuid → tỷ trọng, ví dụ { "4": 0.05, "8": 0.03 }. Tỷ trọng là phân số, tổng ≤ 1.'
+                : 'Map ticker → tỷ trọng, ví dụ { "NVDA": 0.05, "AAPL": 0.03 }. Tỷ trọng là phân số (âm = short), tổng |tỷ trọng| ≤ 1.',
             additionalProperties: { type: 'number' },
           },
         },
@@ -245,9 +296,9 @@ export function useDataTools(deps: DataToolsDeps): void {
       execute: async ({ allocations }: { allocations: WeightMap }) => {
         const { savedPortfolios: saved } = state.current;
         if (!allocations || typeof allocations !== 'object') {
-          throw new Error('Cần map netuid → tỷ trọng.');
+          throw new Error(L('Cần map netuid → tỷ trọng.'));
         }
-        const candidate = withAssetClass(allocations);
+        const candidate = withAssetClass(allocations, profile.assetClass);
         const result = checkDedupe(candidate, saved);
         return {
           ...(describePortfolio(candidate, saved) as PortfolioReport).dedupe,
@@ -261,5 +312,36 @@ export function useDataTools(deps: DataToolsDeps): void {
         };
       },
     },
-  ]);
+
+    {
+      name: 'switch_asset',
+      description:
+        'Chuyển mục đầu tư đang xem: "alpha" (Tao/Alpha — subnet, asset class 0) hoặc "stock" (cổ phiếu Mỹ — ticker, asset class 1). Bảng dữ liệu, Portfolio gen, danh mục đã lưu và các tool generate_portfolio / set_allocation / … đều chạy trên mục đang xem.',
+      inputSchema: {
+        type: 'object',
+        properties: { asset: { type: 'string', enum: ASSET_KEYS } },
+        required: ['asset'],
+      },
+      execute: async ({ asset }: { asset: AssetKey }) => {
+        if (!ASSET_KEYS.includes(asset)) throw new Error(`asset phải là một trong: ${ASSET_KEYS.join(', ')}`);
+        state.current.setAsset(asset);
+        return { active_asset: asset, log: `Chuyển sang mục "${ASSET_PROFILES[asset].label}"` };
+      },
+    },
+
+    {
+      name: 'reload_stock_data',
+      description:
+        'Tải lại bảng cổ phiếu Mỹ từ api.investing88.ai/assets (ticker, name, sector, price, volume, pv = price × volume, mc = vốn hoá). Cash ETFs trong cùng trang được loại khỏi bảng (mạng tính chúng như tiền mặt). Dữ liệu này tự tải khi mở app, không cần dán tay.',
+      inputSchema: { type: 'object', properties: {} },
+      execute: async () => {
+        const result = await state.current.reloadStockData();
+        return {
+          ...result,
+          removed_cash_etfs: result.total - result.loaded,
+          log: `Tải ${result.loaded}/${result.total} mã cổ phiếu Mỹ (loại ${result.total - result.loaded} cash ETF)`,
+        };
+      },
+    },
+  ], deps.asset);
 }

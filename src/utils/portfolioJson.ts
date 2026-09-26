@@ -8,11 +8,13 @@ import { portfolioEntriesDesc } from './portfolioValidation';
 /**
  * Build chuỗi JSON thủ công để giữ thứ tự value cao → thấp.
  * (JSON.stringify luôn duyệt key số nguyên theo thứ tự tăng dần nên không dùng được ở đây.)
- * Giữ key '_' (asset class Tao/Alpha) ở đầu; key netuid không có ngoặc kép (vd `1: 0.05`).
+ * Giữ key '_' (asset class) ở đầu; key netuid không có ngoặc kép (vd `1: 0.05`),
+ * key ticker cổ phiếu Mỹ có ngoặc kép (vd `"NVDA": 0.05`).
  */
 export function formatPortfolioJson(portfolio: Portfolio): string {
   const sorted = portfolioEntriesDesc(portfolio);
-  const lines = [`  "_": ${portfolio._ ?? 0}`, ...sorted.map(([k, v]) => `  ${k}: ${v}`)];
+  const fmtKey = (k: string) => (/^\d+$/.test(k) ? k : JSON.stringify(k));
+  const lines = [`  "_": ${portfolio._ ?? 0}`, ...sorted.map(([k, v]) => `  ${fmtKey(k)}: ${v}`)];
   return `{\n${lines.join(',\n')}\n}`;
 }
 
@@ -30,7 +32,12 @@ export function parseRelaxedPortfolioJson(text: string): ParsedPortfolioJson {
     // Thêm lại ngoặc kép cho key số nguyên (định dạng thoáng) trước khi JSON.parse.
     parsed = JSON.parse(text.replace(/(\d+)\s*:/g, '"$1":'));
   } catch {
-    return { ok: false, error: 'JSON sai cú pháp' };
+    // Định dạng kiểu Python của Subnet 88: {'_':1, 'AAPL':0.15} → nháy đơn thành nháy kép.
+    try {
+      parsed = JSON.parse(text.replace(/'/g, '"').replace(/(\d+)\s*:/g, '"$1":'));
+    } catch {
+      return { ok: false, error: 'JSON sai cú pháp' };
+    }
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { ok: false, error: 'JSON phải là một object' };

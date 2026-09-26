@@ -18,7 +18,8 @@ export function isPrimitive(value: unknown): value is string | number | boolean 
  */
 export function formatBig(n: number, key?: string): string {
   const abs = Math.abs(n);
-  if (key && /(_tao|market_cap|volume|liquidity|alpha|flow)/.test(key)) {
+  // `mc` / `pv`: vốn hoá và giá trị giao dịch của bảng cổ phiếu Mỹ.
+  if (key && /(_tao|market_cap|volume|liquidity|alpha|flow|^mc$|^pv$)/.test(key)) {
     if (abs >= 1e15) return (n / 1e15).toFixed(3) + 'P';
     if (abs >= 1e12) return (n / 1e12).toFixed(3) + 'T';
     if (abs >= 1e9) return (n / 1e9).toFixed(3) + 'B';

@@ -1,5 +1,5 @@
 import type { SavedPortfolioRecord, SubnetRow } from '@/types';
-import { TIER_ORDER, TIERS } from '@/constants/tiers';
+import { TIER_ORDER } from '@/constants/tiers';
 import type { SavedPortfolioEditor } from '@/hooks/useSavedPortfolioEditor';
 import type { SubnetTiers } from '@/hooks/useSubnetTiers';
 import { formatSavedAt } from '@/utils/format';
@@ -30,6 +30,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
   const entries = portfolioEntriesDesc(saved.portfolio); // cùng thứ tự JSON: tỷ trọng cao → thấp
   // Tổng hợp phân loại của danh mục đã lưu (dùng cho badge ở header).
   const savedStats = tiers.canRank ? tiers.summarize(entries) : null;
+  const TIERS = tiers.config;
 
   return (
     <div
@@ -64,7 +65,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
               {saved.name || formatSavedAt(saved.savedAt)}
             </span>
           )}
-          <span className="shrink-0 text-xs tabular-nums text-fg-muted">{entries.length} subnets</span>
+          <span className="shrink-0 text-xs tabular-nums text-fg-muted">{entries.length} {tiers.unit === 'subnet' ? 'subnets' : tiers.unit}</span>
           {savedStats && (
             <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold">
               {TIER_ORDER.map((tier) =>
@@ -72,7 +73,7 @@ export function SavedPortfolioCard({ idx, saved, currentData, tiers, editor, onD
                   <span
                     key={tier}
                     className={cn('rounded border px-1.5 py-0.5 tabular-nums', TIERS[tier].box)}
-                    title={`${TIERS[tier].label}: ${savedStats[tier].count} subnet · ${savedStats[tier].weight.toFixed(2)}% tỷ trọng — ${TIERS[tier].hint}`}
+                    title={`${TIERS[tier].label}: ${savedStats[tier].count} ${tiers.unit} · ${savedStats[tier].weight.toFixed(2)}% tỷ trọng — ${TIERS[tier].hint}`}
                   >
                     {TIERS[tier].chip} {savedStats[tier].count}
                   </span>

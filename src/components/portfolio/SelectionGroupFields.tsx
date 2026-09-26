@@ -1,5 +1,6 @@
 import type { MetricKey } from '@/types';
-import { CHANGE_OPTIONS, TOP_N_MAX } from '@/constants/portfolio';
+import { TOP_N_MAX } from '@/constants/portfolio';
+import { useAssetProfile } from '@/store/asset/context';
 import { cn } from '@/utils/classNames';
 import { Button, Eyebrow } from '@/components/ui';
 import { TrashIcon } from '@/components/icons';
@@ -21,7 +22,7 @@ export interface SelectionGroupFieldsProps {
   onRemove?: () => void;
 }
 
-/** Một khối cấu hình nhóm generate: số subnet + nhiều tiêu chí xếp hạng. */
+/** Một khối cấu hình nhóm generate: số subnet / mã + nhiều tiêu chí xếp hạng (theo mục đầu tư). */
 export function SelectionGroupFields({
   title,
   count,
@@ -33,6 +34,7 @@ export function SelectionGroupFields({
   canRemove = false,
   onRemove,
 }: SelectionGroupFieldsProps) {
+  const { metricOptions, unit } = useAssetProfile();
   const disabled = new Set(disabledKeys);
 
   function toggleKey(key: MetricKey) {
@@ -49,7 +51,7 @@ export function SelectionGroupFields({
     <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-line bg-surface/40 p-3">
       <div className="flex items-center justify-between gap-2">
         <Eyebrow>
-          {title} · tối đa {TOP_N_MAX} subnet
+          {title} · tối đa {TOP_N_MAX} {unit}
         </Eyebrow>
         {canRemove && onRemove && (
           <Button
@@ -78,7 +80,7 @@ export function SelectionGroupFields({
           Tiêu chí · chọn một hoặc nhiều
         </span>
         <div className="flex flex-col gap-0.5">
-          {CHANGE_OPTIONS.map((opt) => {
+          {metricOptions.map((opt) => {
             const checked = changeKeys.includes(opt.value);
             const isDisabled = disabled.has(opt.value);
             return (

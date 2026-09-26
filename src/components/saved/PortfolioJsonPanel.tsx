@@ -2,6 +2,7 @@ import type { Portfolio, StatusMessage } from '@/types';
 import { formatPortfolioJson } from '@/utils/portfolioJson';
 import { Button, Eyebrow, Notice } from '@/components/ui';
 import { CheckIcon, CodeIcon, CopyIcon, PencilIcon, RefreshIcon, XIcon } from '@/components/icons';
+import { useAssetProfile } from '@/store/asset/context';
 
 export interface PortfolioJsonPanelProps {
   portfolio: Portfolio;
@@ -44,6 +45,7 @@ export function PortfolioJsonPanel({
   onStartEditWeights,
   onStartEditJson,
 }: PortfolioJsonPanelProps) {
+  const { unit, ruleLabel } = useAssetProfile();
   return (
     <div className="show-scrollbar flex flex-col gap-3 overflow-y-auto p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -71,7 +73,7 @@ export function PortfolioJsonPanel({
                 variant="success"
                 icon={<CheckIcon size={13} strokeWidth={2.5} />}
                 onClick={onApplyJson}
-                title="Kiểm tra hợp lệ Tao/Alpha rồi lưu JSON"
+                title={`Kiểm tra hợp lệ ${ruleLabel} rồi lưu JSON`}
               >
                 Áp dụng JSON
               </Button>
@@ -105,12 +107,12 @@ export function PortfolioJsonPanel({
                 icon={<PencilIcon size={13} />}
                 onClick={onStartEditWeights}
                 title={
-                  'Sửa tỷ trọng / bỏ subnet — chọn subnet nhận lại phần tỷ trọng đã bỏ (mặc định chia đều cho tất cả subnet còn lại).\n' +
-                  'Thêm subnet mới từ danh sách tăng trưởng cao nhất — tỷ trọng trích từ 10% của mỗi subnet trong top 10 lớn nhất.'
+                  `Sửa tỷ trọng / bỏ ${unit} — chọn ${unit} nhận lại phần tỷ trọng đã bỏ (mặc định chia đều cho tất cả ${unit} còn lại).\n` +
+                  `Thêm ${unit} mới từ danh sách ${unit === 'subnet' ? 'tăng trưởng' : 'xếp hạng'} cao nhất — tỷ trọng trích từ 10% của mỗi ${unit} trong top 10 lớn nhất.`
                 }
                 className="hover:border-accent hover:text-accent"
               >
-                Sửa / thêm subnet
+                Sửa / thêm {unit}
               </Button>
               <Button
                 size="sm"

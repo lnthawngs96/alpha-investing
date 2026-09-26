@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import type { MetricKey, Portfolio, SaveResult, SavedPortfolioRecord, Selection, SelectionGroup, SubnetRow } from '@/types';
-import { CHANGE_DEFAULT, CHANGE_OPTIONS, DD_TRIGGER, LIQUIDITY_FIELD, TOP_N_MAX } from '@/constants/portfolio';
+import type {
+  AssetProfile,
+  MetricKey,
+  MetricOption,
+  Portfolio,
+  SaveResult,
+  SavedPortfolioRecord,
+  Selection,
+  SelectionGroup,
+  SubnetRow,
+} from '@/types';
+import { DD_TRIGGER, TOP_N_MAX } from '@/constants/portfolio';
 import {
   DEFAULT_EXTRA_GROUP_COUNT,
-  DEFAULT_GROUP1_COUNT,
-  DEFAULT_GROUP2_COUNT,
   MAX_SELECTION_GROUPS,
   MIN_SELECTION_GROUPS,
   TOAST_ERROR_MS,
@@ -18,10 +26,11 @@ import {
   primaryChangeKey,
   selectionKeys,
 } from '@/utils/portfolioGroups';
-import { checkDedupe, portfolioEntries, validateTaoAlphaPortfolio } from '@/utils/portfolioValidation';
+import { checkDedupe, portfolioEntries, validatePortfolio } from '@/utils/portfolioValidation';
 import { compareByMetricDesc, findSubnet, getSubnetPool } from '@/utils/subnetData';
 import { toNumber } from '@/utils/numeric';
 import { usePortfolioTools } from '@/webmcp/usePortfolioTools';
+import { useAssetProfile } from '@/store/asset/context';
 import { Badge, Button, Card, EmptyState, Eyebrow, Notice } from '@/components/ui';
 import { PlusIcon, RefreshIcon, TargetIcon } from '@/components/icons';
 import { SelectionGroupFields } from './SelectionGroupFields';
@@ -32,6 +41,11 @@ export interface PortfolioBuilderProps {
   allData: SubnetRow[];
   savedPortfolios: SavedPortfolioRecord[];
   onSavePortfolio: (record: SavedPortfolioRecord) => void;
+  /**
+   * Đăng ký bộ tool WebMCP cấp danh mục. App mount một builder cho mỗi mục đầu tư
+   * và chỉ bật tool ở builder đang xem (tên tool trùng nhau). Mặc định true.
+   */
+  toolsEnabled?: boolean;
 }
 
 /** Trạng thái form của một nhóm tiêu chí (chưa generate). */
@@ -41,8 +55,8 @@ interface GroupDraft {
   changeKeys: MetricKey[];
 }
 
-function toSelection(keys: MetricKey[], n: number): Selection {
-  const changeKeys = ensureMetricKeys(keys, LIQUIDITY_FIELD);
+function toSelection(keys: MetricKey[], n: number, fallback: MetricKey): Selection {
+  const changeKeys = ensureMetricKeys(keys, fallback);
   return { changeKey: changeKeys[0], changeKeys, n };
 }
 
@@ -50,15 +64,12 @@ function newGroupId(): string {
   return `g-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function defaultDrafts(): GroupDraft[] {
-  return [
-    { id: newGroupId(), count: DEFAULT_GROUP1_COUNT, changeKeys: [LIQUIDITY_FIELD] },
-    { id: newGroupId(), count: DEFAULT_GROUP2_COUNT, changeKeys: [CHANGE_DEFAULT] },
-  ];
+function defaultDrafts(profile: AssetProfile): GroupDraft[] {
+  return profile.defaultGroups.map((g) => ({ id: newGroupId(), count: g.count, changeKeys: [...g.keys] }));
 }
 
-function firstUnusedMetric(used: ReadonlySet<MetricKey>): MetricKey | null {
-  for (const opt of CHANGE_OPTIONS) {
+function firstUnusedMetric(used: ReadonlySet<MetricKey>, options: readonly MetricOption[]): MetricKey | null {
+  for (const opt of options) {
     if (!used.has(opt.value)) return opt.value;
   }
   return null;
@@ -69,10 +80,12 @@ function firstUnusedMetric(used: ReadonlySet<MetricKey>): MetricKey | null {
  * bổ giảm dần theo thanh khoản → xem / sửa / lưu. Component này cũng đăng ký
  * bộ tool WebMCP cấp danh mục, nên phải luôn được mount (App ẩn bằng CSS).
  */
-export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: PortfolioBuilderProps) {
+export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio, toolsEnabled = true }: PortfolioBuilderProps) {
+  const profile = useAssetProfile();
+  const { metricOptions, weightField, unit } = profile;
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [drafts, setDrafts] = useState<GroupDraft[]>(defaultDrafts);
+  const [drafts, setDrafts] = useState<GroupDraft[]>(() => defaultDrafts(profile));
   const [topSubnets, setTopSubnets] = useState<SubnetRow[]>([]);
   // Membership theo từng nhóm generate — lưu cùng danh mục để UI xoá cả cụm.
   const [selectionGroups, setSelectionGroups] = useState<SelectionGroup[]>([]);
@@ -93,7 +106,8 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   const poolSize = getSubnetPool(allData).length;
   const usedMetrics = new Set(drafts.flatMap((d) => d.changeKeys));
   const canAddGroup =
-    drafts.length < Math.min(MAX_SELECTION_GROUPS, CHANGE_OPTIONS.length) && firstUnusedMetric(usedMetrics) != null;
+    drafts.length < Math.min(MAX_SELECTION_GROUPS, metricOptions.length) &&
+    firstUnusedMetric(usedMetrics, metricOptions) != null;
 
   /** Chuẩn hoá số subnet nhập vào: ≥ 1, ≤ TOP_N_MAX và ≤ số subnet có trong pool. */
   function parseCount(str: string): number {
@@ -114,7 +128,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   }
 
   function addGroup() {
-    const metric = firstUnusedMetric(usedMetrics);
+    const metric = firstUnusedMetric(usedMetrics, metricOptions);
     if (!metric || !canAddGroup) return;
     setDrafts((list) => [
       ...list,
@@ -132,7 +146,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   }
 
   function draftsToSelections(list: GroupDraft[]): Selection[] {
-    return list.map((d) => toSelection(d.changeKeys, parseCount(d.count)));
+    return list.map((d) => toSelection(d.changeKeys, parseCount(d.count), weightField));
   }
 
   /**
@@ -142,8 +156,9 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   function generateWith(selections: Selection[]): Portfolio | null {
     if (!selections.length) return null;
     const { subnets: combined, groups } = getMixedSubnetsGrouped(allData, selections);
-    const byLiquidity = [...combined].sort(compareByMetricDesc(LIQUIDITY_FIELD));
-    const next = generateLiquidityWeightedPortfolio(byLiquidity);
+    // Alpha: theo thanh khoản; cổ phiếu Mỹ: theo vốn hoá (profile.weightField).
+    const byLiquidity = [...combined].sort(compareByMetricDesc(weightField));
+    const next = generateLiquidityWeightedPortfolio(byLiquidity, profile.maxWeight, profile.assetClass);
     setTopSubnets(byLiquidity);
     setSelectionGroups(
       groups.map((g) => {
@@ -172,7 +187,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   function generateFromAgent(selections: Selection[]): Portfolio | null {
     if (!selections.length) return null;
     const nextDrafts: GroupDraft[] = selections.map((s) => {
-      const keys = ensureMetricKeys(selectionKeys(s) as MetricKey[], LIQUIDITY_FIELD);
+      const keys = ensureMetricKeys(selectionKeys(s) as MetricKey[], weightField);
       return {
         id: newGroupId(),
         count: String(parseCount(String(s.n))),
@@ -195,7 +210,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   function saveWithName(name?: string): SaveResult {
     if (!portfolio) return { ok: false, message: 'Chưa có danh mục để lưu.' };
 
-    const { valid, errors } = validateTaoAlphaPortfolio(portfolio);
+    const { valid, errors } = validatePortfolio(portfolio);
     if (!valid) {
       return { ok: false, message: `Danh mục không hợp lệ: ${errors[0]}` };
     }
@@ -249,6 +264,8 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
   }
 
   usePortfolioTools({
+    enabled: toolsEnabled,
+    profile,
     allData,
     savedPortfolios,
     portfolio,
@@ -310,8 +327,9 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
           </div>
 
           <p className="shrink-0 text-[11px] leading-relaxed text-fg-faint">
-            Gộp {summaryText || '…'} (nhiều tiêu chí trong một nhóm lấy xen kẽ; loại subnet trùng và bỏ subnet 0).
-            Danh mục cuối sắp xếp theo thanh khoản giảm dần.
+            Gộp {summaryText || '…'} (nhiều tiêu chí trong một nhóm lấy xen kẽ; loại {unit} trùng
+            {profile.key === 'alpha' ? ' và bỏ subnet 0' : ''}). Danh mục cuối sắp xếp theo {profile.weightLabel} giảm dần.
+            {profile.key === 'stock' && ' Cash ETFs đã bị loại khỏi dữ liệu.'}
           </p>
 
           <div className="flex shrink-0 items-center justify-between">
@@ -329,13 +347,13 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
                     <div className="text-[10px] font-bold uppercase tracking-wider text-fg-faint">
                       {g.label || metricsLabel(selectionKeys(g))} · {chips.length}
                     </div>
-                    <SubnetChipList subnets={chips} metricField={LIQUIDITY_FIELD} className="flex flex-col gap-2" />
+                    <SubnetChipList subnets={chips} metricField={weightField} className="flex flex-col gap-2" />
                   </div>
                 );
               })}
             </div>
           ) : (
-            <SubnetChipList subnets={topSubnets} metricField={LIQUIDITY_FIELD} />
+            <SubnetChipList subnets={topSubnets} metricField={weightField} />
           )}
           <Button
             variant="primary"
@@ -359,7 +377,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
             <PortfolioResult
               portfolio={portfolio}
               filteredSubnets={topSubnets}
-              metricField={LIQUIDITY_FIELD}
+              metricField={weightField}
               editMode={editMode}
               onToggleEdit={handleToggleEdit}
               onRegenerate={handleGenerate}
@@ -373,7 +391,7 @@ export function PortfolioBuilder({ allData, savedPortfolios, onSavePortfolio }: 
               title='Chọn nhóm tiêu chí và click "Generate"'
               description={
                 <>
-                  {drafts.length} nhóm · {summaryText || '…'} từ {poolSize} subnet
+                  {drafts.length} nhóm · {summaryText || '…'} từ {poolSize} {unit}
                 </>
               }
             />
